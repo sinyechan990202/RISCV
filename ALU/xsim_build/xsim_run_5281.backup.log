@@ -1,0 +1,62 @@
+#-----------------------------------------------------------
+# xsim v2025.2 (64-bit)
+# SW Build 6299465 on Fri Nov 14 12:34:56 MST 2025
+# IP Build 6300035 on Fri Nov 14 10:48:45 MST 2025
+# SharedData Build 6298862 on Thu Nov 13 04:50:51 MST 2025
+# Start of session at: Tue Apr 14 20:29:42 2026
+# Process ID         : 5281
+# Current directory  : /media/ubuntu/hard/Custom_IP/RISCV/ALU/xsim_build
+# Command line       : xsim -log xsim_run.log -mode tcl -source {xsim.dir/tb_ALU_snap/xsim_script.tcl}
+# Log file           : /media/ubuntu/hard/Custom_IP/RISCV/ALU/xsim_build/xsim_run.log
+# Journal file       : /media/ubuntu/hard/Custom_IP/RISCV/ALU/xsim_build/xsim.jou
+# Running On         : ubuntu-syc
+# Platform           : Ubuntu
+# Operating System   : Ubuntu 22.04.5 LTS
+# Processor Detail   : Intel(R) Core(TM) i5-7300HQ CPU @ 2.50GHz
+# CPU Frequency      : 3100.000 MHz
+# CPU Physical cores : 4
+# CPU Logical cores  : 4
+# Host memory        : 16647 MB
+# Swap memory        : 2147 MB
+# Total Virtual      : 18795 MB
+# Available Virtual  : 15184 MB
+#-----------------------------------------------------------
+source xsim.dir/tb_ALU_snap/xsim_script.tcl
+# xsim {tb_ALU_snap} -autoloadwcfg -runall
+Time resolution is 1 ps
+run -all
+[PASS] test[00] | result=0x00000007 flags=0000
+[PASS] test[01] | result=0x00000000 flags=1000
+[PASS] test[02] | result=0x00000000 flags=1001
+[PASS] test[03] | result=0x80000000 flags=0110
+[PASS] test[04] | result=0x00000007 flags=0001
+[PASS] test[05] | result=0x00000000 flags=1001
+[PASS] test[06] | result=0xffffffff flags=0100
+[PASS] test[07] | result=0x7fffffff flags=0011
+[PASS] test[08] | result=0x00000000 flags=1000
+[PASS] test[09] | result=0xa5a5a5a5 flags=0101
+[PASS] test[10] | result=0xffffffff flags=0100
+[PASS] test[11] | result=0x00000000 flags=1000
+[PASS] test[12] | result=0x00000000 flags=1001
+[PASS] test[13] | result=0xffffffff flags=0100
+[PASS] test[14] | result=0x00000010 flags=0000
+[PASS] test[15] | result=0x80000000 flags=0100
+[PASS] test[16] | result=0x08000000 flags=0000
+[PASS] test[17] | result=0x00000001 flags=0001
+[PASS] test[18] | result=0xf8000000 flags=0100
+[PASS] test[19] | result=0x07ffffff flags=0000
+[PASS] test[20] | result=0x00000001 flags=0001
+[PASS] test[21] | result=0x00000000 flags=1000
+[PASS] test[22] | result=0x00000001 flags=0000
+[PASS] test[23] | result=0x00000000 flags=1001
+[PASS] test[24] | result=0xabcde000 flags=0101
+[PASS] test[25] | result=0x00000000 flags=1001
+[PASS] test[26] | result=0xffffffff flags=0100
+========================================
+ RESULT : PASS=27  FAIL=0  TOTAL=27
+ ALL TESTS PASSED
+========================================
+$finish called at time : 280 ns : File "/media/ubuntu/hard/Custom_IP/RISCV/ALU/testbench/tb_ALU.sv" Line 266
+exit
+INFO: xsimkernel Simulation Memory Usage: 280496 KB (Peak: 338028 KB), Simulation CPU Usage: 1580 ms
+INFO: [Common 17-206] Exiting xsim at Tue Apr 14 20:30:07 2026...

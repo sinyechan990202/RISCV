@@ -1,0 +1,204 @@
+#-----------------------------------------------------------
+# xsim v2025.2 (64-bit)
+# SW Build 6299465 on Fri Nov 14 12:34:56 MST 2025
+# IP Build 6300035 on Fri Nov 14 10:48:45 MST 2025
+# SharedData Build 6298862 on Thu Nov 13 04:50:51 MST 2025
+# Start of session at: Tue Apr 14 20:31:41 2026
+# Process ID         : 5806
+# Current directory  : /media/ubuntu/hard/Custom_IP/RISCV/ALU/xsim_build
+# Command line       : xsim -source {xsim.dir/tb_ALU_snap/xsim_script.tcl}
+# Log file           : /media/ubuntu/hard/Custom_IP/RISCV/ALU/xsim_build/xsim.log
+# Journal file       : /media/ubuntu/hard/Custom_IP/RISCV/ALU/xsim_build/xsim.jou
+# Running On         : ubuntu-syc
+# Platform           : Ubuntu
+# Operating System   : Ubuntu 22.04.5 LTS
+# Processor Detail   : Intel(R) Core(TM) i5-7300HQ CPU @ 2.50GHz
+# CPU Frequency      : 3288.183 MHz
+# CPU Physical cores : 4
+# CPU Logical cores  : 4
+# Host memory        : 16647 MB
+# Swap memory        : 2147 MB
+# Total Virtual      : 18795 MB
+# Available Virtual  : 15189 MB
+#-----------------------------------------------------------
+start_gui
+source xsim.dir/tb_ALU_snap/xsim_script.tcl
+# set_param project.enableReportConfiguration 0
+# load_feature core
+# current_fileset
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:arty-a7-100:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/arty-a7-100/E.0/1.0/board.xml as part xc7a100tcsg324-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:arty-a7-100:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/arty-a7-100/E.0/1.1/board.xml as part xc7a100tcsg324-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:arty-a7-35:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/arty-a7-35/E.0/1.0/board.xml as part xc7a35ticsg324-1l specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:arty-a7-35:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/arty-a7-35/E.0/1.1/board.xml as part xc7a35ticsg324-1l specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:arty-s7-25:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/arty-s7-25/E.0/board.xml as part xc7s25csga324-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:arty-s7-50:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/arty-s7-50/B.0/board.xml as part xc7s50csga324-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:arty:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/arty/C.0/board.xml as part xc7a35ticsg324-1l specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:basys3:part0:1.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/basys3/C.0/board.xml as part xc7a35tcpg236-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:cmod-s7-25:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/cmod-s7-25/B.0/board.xml as part xc7s25csga225-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:cmod_a7-15t:part0:1.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/cmod_a7-15t/B.0/board.xml as part xc7a15tcpg236-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:cmod_a7-35t:part0:1.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/cmod_a7-35t/B.0/board.xml as part xc7a35tcpg236-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:genesys2:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/genesys2/H/board.xml as part xc7k325tffg900-2 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:nexys-a7-100t:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/nexys-a7-100t/D.0/1.0/board.xml as part xc7a100tcsg324-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:nexys-a7-100t:part0:1.3 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/nexys-a7-100t/D.0/1.3/board.xml as part xc7a100tcsg324-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:nexys-a7-50t:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/nexys-a7-50t/D.0/1.0/board.xml as part xc7a50ticsg324-1l specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:nexys-a7-50t:part0:1.3 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/nexys-a7-50t/D.0/1.3/board.xml as part xc7a50ticsg324-1l specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:nexys4:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/nexys4/B.1/board.xml as part xc7a100tcsg324-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:nexys4_ddr:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/nexys4_ddr/C.1/board.xml as part xc7a100tcsg324-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:nexys_video:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/nexys_video/A.0/1.1/board.xml as part xc7a200tsbg484-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:nexys_video:part0:1.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/nexys_video/A.0/1.2/board.xml as part xc7a200tsbg484-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:sword:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/sword/C.0/board.xml as part xc7k325tffg900-2 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:usb104-a7:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/usb104-a7/B/1.0/board.xml as part xc7a100tcsg324-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:usb104-a7:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/usb104-a7/B/1.1/board.xml as part xc7a100tcsg324-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:usb104-a7:part0:1.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/usb104-a7/B/1.2/board.xml as part xc7a100tcsg324-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part digilentinc.com:usb104-a7:part0:1.3 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/usb104-a7/B/1.3/board.xml as part xc7a100tcsg324-1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:ac701:part0:1.4 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/ac701/1.4/board.xml as part xc7a200tfbg676-2 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:emb-plus-vpr-4616:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/emb-plus-vpr-4616/1.0/board.xml as part xcve2302-sfva784-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:emb-plus-vpr-4616:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/emb-plus-vpr-4616/1.1/board.xml as part xcve2302-sfva784-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kc705:part0:1.6 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/kc705/1.6/board.xml as part xc7k325tffg900-2 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kc705:part0:1.7 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/kc705/1.7/board.xml as part xc7k325tffg900-2 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kcu105:part0:1.6 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/kcu105/1.6/board.xml as part xcku040-ffva1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kcu105:part0:1.7 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/kcu105/1.7/board.xml as part xcku040-ffva1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kcu116:part0:1.4 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/kcu116/1.4/board.xml as part xcku5p-ffvb676-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kcu116:part0:1.5 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/kcu116/1.5/board.xml as part xcku5p-ffvb676-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:kcu1500:part0:1.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/kcu1500/1.2/board.xml as part xcku115-flvb2104-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:scu35:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/scu35/1.0/board.xml as part xcsu35p-sbvb625-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:sp701:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/sp701/1.0/board.xml as part xc7s100fgga676-2 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:sp701:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/sp701/1.1/board.xml as part xc7s100fgga676-2 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:v80:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/v80/1.0/board.xml as part xcv80-lsva4737-2mhp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vc707:part0:1.4 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vc707/1.4/board.xml as part xc7vx485tffg1761-2 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vc707:part0:1.5 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vc707/1.5/board.xml as part xc7vx485tffg1761-2 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vc709:part0:1.8 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vc709/1.8/board.xml as part xc7vx690tffg1761-2 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:2.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vck190/production/2.2/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:3.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vck190/production/3.0/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:3.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vck190/production/3.1/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:3.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vck190/production/3.2/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:3.3 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vck190/production/3.3/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190:part0:3.4 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vck190/production/3.4/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190_newl:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vck190_newl/production/1.0/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190_newl:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vck190_newl/production/1.1/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190_newl:part0:1.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vck190_newl/production/1.2/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vck190_newl:part0:1.3 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vck190_newl/production/1.3/board.xml as part xcvc1902-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu108:part0:1.6 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vcu108/1.6/board.xml as part xcvu095-ffva2104-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu108:part0:1.7 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vcu108/1.7/board.xml as part xcvu095-ffva2104-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu110:part0:1.4 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vcu110/1.4/board.xml as part xcvu190-flgc2104-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu118:part0:2.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vcu118/2.0/board.xml as part xcvu9p-flga2104-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu118:part0:2.3 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vcu118/2.3/board.xml as part xcvu9p-flga2104-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu118:part0:2.4 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vcu118/2.4/board.xml as part xcvu9p-flga2104-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu128:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vcu128/production/1.0/board.xml as part xcvu37p-fsvh2892-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu129:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vcu129/production/1.0/board.xml as part xcvu29p-fsga2577-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vcu1525:part0:1.3 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vcu1525/1.3/board.xml as part xcvu9p-fsgd2104-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek280:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vek280/production/1.0/board.xml as part xcve2802-vsvh1760-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek280:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vek280/production/1.1/board.xml as part xcve2802-vsvh1760-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek280:part0:1.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vek280/production/1.2/board.xml as part xcve2802-vsvh1760-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek385:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vek385/1.0/board.xml as part xc2ve3858-ssva2112-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek385:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vek385/1.1/board.xml as part xc2ve3858-ssva2112-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vek385_1:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vek385_2/1.0/board.xml as part xc2ve3858-ssva2112-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vermeo_t1_mpsoc:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vermeo_t1_mpsoc/1.0/board.xml as part xczu19eg-ffvd1760-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vermeo_t1_rfsoc:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vermeo_t1_rfsoc/1.0/board.xml as part xczu21dr-ffvd1156-2l-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vhk158:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vhk158/production/1.0/board.xml as part xcvh1582-vsva3697-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vhk158:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vhk158/production/1.1/board.xml as part xcvh1582-vsva3697-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vhk158:part0:1.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu670ld/vhk158/production/1.2/board.xml as part xcvh1582-vsva3697-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180:part0:2.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180/production/2.2/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180:part0:3.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180/production/3.0/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180:part0:3.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180/production/3.1/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180:part0:3.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180/production/3.2/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180:part0:3.3 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180/production/3.3/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180_newl:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180_newl/production/1.0/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vmk180_newl:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vmk180_newl/production/1.1/board.xml as part xcvm1802-vsva2197-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk120:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk120/production/1.0/board.xml as part xcvp1202-vsva2785-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk120:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk120/production/1.1/board.xml as part xcvp1202-vsva2785-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk120:part0:1.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk120/production/1.2/board.xml as part xcvp1202-vsva2785-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk180:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk180/production/1.0/board.xml as part xcvp1802-lsvc4072-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk180:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk180/production/1.1/board.xml as part xcvp1802-lsvc4072-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vpk180:part0:1.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vpk180/production/1.2/board.xml as part xcvp1802-lsvc4072-2mp-e-s specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vrk160:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vrk160/1.0/board.xml as part xcvr1602-vsva2488-2mp-e-s-es1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:vrk160:part0:1.1 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/vrk160/1.1/board.xml as part xcvr1602-vsva2488-2mp-e-s-es1 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zc706:part0:1.4 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zc706/1.4/board.xml as part xc7z045ffg900-2 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zc706:part0:1.5 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zc706/1.5/board.xml as part xc7z045ffg900-2 specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu102:part0:3.3 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu102/3.3/board.xml as part xczu9eg-ffvb1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu102:part0:3.4 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu102/3.4/board.xml as part xczu9eg-ffvb1156-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu111:part0:1.2 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu111/1.2/board.xml as part xczu28dr-ffvg1517-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu111:part0:1.3 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu111/1.3/board.xml as part xczu28dr-ffvg1517-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu111:part0:1.4 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu111/1.4/board.xml as part xczu28dr-ffvg1517-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu1275:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu1275/1.0/board.xml as part xczu29dr-ffvf1760-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu1285:part0:1.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu1285/1.0/board.xml as part xczu39dr-ffvf1760-2-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu208:part0:2.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu208/production/2.0/board.xml as part xczu48dr-fsvg1517-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu208ld:part0:2.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu208ld/production/2.0/board.xml as part xczu58dr-fsvg1517-2-i specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu216:part0:2.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu216/production/2.0/board.xml as part xczu49dr-ffvf1760-2-e specified in board_part file is either invalid or not available
+WARNING: [Board 49-26] cannot add Board Part xilinx.com:zcu216ld:part0:2.0 available at /media/ubuntu/hard/Xilnx/2025.2/data/xhub/boards/XilinxBoardStore/boards/Xilinx/zcu216ld/production/2.0/board.xml as part xczu59dr-ffvf1760-2-i specified in board_part file is either invalid or not available
+INFO: [Common 17-14] Message 'Board 49-26' appears 100 times and further instances of the messages will be disabled. Use the Tcl command set_msg_config to change the current settings.
+INFO: [IP_Flow 19-234] Refreshing IP repositories
+INFO: [IP_Flow 19-1704] No user IP repositories specified
+INFO: [IP_Flow 19-2313] Loaded Vivado IP repository '/media/ubuntu/hard/Xilnx/2025.2/data/ip'.
+current_fileset: Time (s): cpu = 00:00:19 ; elapsed = 00:00:15 . Memory (MB): peak = 11500.195 ; gain = 0.000 ; free physical = 6431 ; free virtual = 13677
+# xsim {tb_ALU_snap} -autoloadwcfg
+Time resolution is 1 ps
+run all
+[PASS] test[00] | result=0x00000007 flags=0000
+[PASS] test[01] | result=0x00000000 flags=1000
+[PASS] test[02] | result=0x00000000 flags=1001
+[PASS] test[03] | result=0x80000000 flags=0110
+[PASS] test[04] | result=0x00000007 flags=0001
+[PASS] test[05] | result=0x00000000 flags=1001
+[PASS] test[06] | result=0xffffffff flags=0100
+[PASS] test[07] | result=0x7fffffff flags=0011
+[PASS] test[08] | result=0x00000000 flags=1000
+[PASS] test[09] | result=0xa5a5a5a5 flags=0101
+[PASS] test[10] | result=0xffffffff flags=0100
+[PASS] test[11] | result=0x00000000 flags=1000
+[PASS] test[12] | result=0x00000000 flags=1001
+[PASS] test[13] | result=0xffffffff flags=0100
+[PASS] test[14] | result=0x00000010 flags=0000
+[PASS] test[15] | result=0x80000000 flags=0100
+[PASS] test[16] | result=0x08000000 flags=0000
+[PASS] test[17] | result=0x00000001 flags=0001
+[PASS] test[18] | result=0xf8000000 flags=0100
+[PASS] test[19] | result=0x07ffffff flags=0000
+[PASS] test[20] | result=0x00000001 flags=0001
+[PASS] test[21] | result=0x00000000 flags=1000
+[PASS] test[22] | result=0x00000001 flags=0000
+[PASS] test[23] | result=0x00000000 flags=1001
+[PASS] test[24] | result=0xabcde000 flags=0101
+[PASS] test[25] | result=0x00000000 flags=1001
+[PASS] test[26] | result=0xffffffff flags=0100
+========================================
+ RESULT : PASS=27  FAIL=0  TOTAL=27
+ ALL TESTS PASSED
+========================================
+$finish called at time : 280 ns : File "/media/ubuntu/hard/Custom_IP/RISCV/ALU/testbench/tb_ALU.sv" Line 266
+create_wave_config; add_wave /; set_property needs_save false [current_wave_config]
+run 10 us
+========================================
+ RESULT : PASS=27  FAIL=0  TOTAL=27
+ ALL TESTS PASSED
+========================================
+$finish called at time : 290 ns : File "/media/ubuntu/hard/Custom_IP/RISCV/ALU/testbench/tb_ALU.sv" Line 266
+run all
+========================================
+ RESULT : PASS=27  FAIL=0  TOTAL=27
+ ALL TESTS PASSED
+========================================
+$finish called at time : 300 ns : File "/media/ubuntu/hard/Custom_IP/RISCV/ALU/testbench/tb_ALU.sv" Line 266
+run all
+========================================
+ RESULT : PASS=27  FAIL=0  TOTAL=27
+ ALL TESTS PASSED
+========================================
+$finish called at time : 310 ns : File "/media/ubuntu/hard/Custom_IP/RISCV/ALU/testbench/tb_ALU.sv" Line 266
+run all
+========================================
+ RESULT : PASS=27  FAIL=0  TOTAL=27
+ ALL TESTS PASSED
+========================================
+$finish called at time : 320 ns : File "/media/ubuntu/hard/Custom_IP/RISCV/ALU/testbench/tb_ALU.sv" Line 266
+run all
+========================================
+ RESULT : PASS=27  FAIL=0  TOTAL=27
+ ALL TESTS PASSED
+========================================
+$finish called at time : 330 ns : File "/media/ubuntu/hard/Custom_IP/RISCV/ALU/testbench/tb_ALU.sv" Line 266
+close_sim
+INFO: xsimkernel Simulation Memory Usage: 280492 KB (Peak: 338024 KB), Simulation CPU Usage: 1760 ms
+INFO: [Simtcl 6-16] Simulation closed
+exit
+INFO: [Common 17-206] Exiting xsim at Tue Apr 14 20:43:02 2026...
