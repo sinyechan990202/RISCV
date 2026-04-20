@@ -1,1 +1,0 @@
-"xwork.tb_ALU" --debug "all" -s "tb_ALU_snap" 

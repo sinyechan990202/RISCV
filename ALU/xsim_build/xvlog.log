@@ -1,4 +1,0 @@
-INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/media/ubuntu/hard/Custom_IP/RISCV/ALU/src/ALU.sv" into library xwork
-INFO: [VRFC 10-311] analyzing module ALU
-INFO: [VRFC 10-2263] Analyzing SystemVerilog file "/media/ubuntu/hard/Custom_IP/RISCV/ALU/testbench/tb_ALU.sv" into library xwork
-INFO: [VRFC 10-311] analyzing module tb_ALU
