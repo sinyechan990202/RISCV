@@ -18,10 +18,15 @@ module hazard_unit (
     // Memory back-pressure
     input  logic       imem_ready,
     input  logic       dmem_ready,
+    input  logic       dmem_active,  // EX/MEM stage has an active load or store
 
     // Stall outputs (active-high)
     output logic       stall_if,
     output logic       stall_id,
+    // Full-pipeline stall (memory back-pressure only, not load-use)
+    output logic       stall_ex,
+    output logic       stall_mem,
+    output logic       stall_wb,
 
     // Flush outputs (active-high, inserts NOP)
     output logic       flush_id,
@@ -43,13 +48,18 @@ module hazard_unit (
                         & ((ex_rd == id_rs1) | (ex_rd == id_rs2));
 
         control_hazard  = branch_taken | ex_jal | ex_jalr;
-        mem_not_ready   = ~imem_ready | ~dmem_ready;
+        // dmem stall only when a load/store is actually in the MEM stage
+        mem_not_ready   = ~imem_ready | (~dmem_ready & dmem_active);
 
         // --------------------------------------------------
         // Stall: load-use or memory back-pressure
         // --------------------------------------------------
-        stall_if = load_use_hazard | mem_not_ready;
-        stall_id = load_use_hazard | mem_not_ready;
+        stall_if  = load_use_hazard | mem_not_ready;
+        stall_id  = load_use_hazard | mem_not_ready;
+        // EX/MEM/WB stall only on memory back-pressure (load-use uses flush_ex instead)
+        stall_ex  = mem_not_ready;
+        stall_mem = mem_not_ready;
+        stall_wb  = mem_not_ready;
 
         // --------------------------------------------------
         // Flush: trap takes priority over all

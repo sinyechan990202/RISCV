@@ -90,7 +90,8 @@ module mem_stage #(
     assign dmem_req   = mem_ren_i | mem_wen_i;
     assign dmem_we    = mem_wen_i;
     assign dmem_be    = be;
-    assign dmem_addr  = alu_result_i;
+    // Word-aligned address: low 2 bits are byte-offset, carried separately via byte_off
+    assign dmem_addr  = {alu_result_i[XLEN-1:2], 2'b00};
     assign dmem_wdata = wdata_shifted;
     assign ready_o    = dmem_ready;
 

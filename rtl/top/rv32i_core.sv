@@ -54,6 +54,9 @@ module rv32i_core #(
     // =========================================================================
     logic        stall_if;      // IF stage stall (load-use, imem not ready)
     logic        stall_id;      // IF/ID register stall
+    logic        stall_ex;      // ID/EX  register stall (memory back-pressure only)
+    logic        stall_mem;     // EX/MEM register stall (memory back-pressure only)
+    logic        stall_wb;      // MEM/WB register stall (memory back-pressure only)
     logic        flush_id;      // IF/ID register flush (control hazard / trap)
     logic        flush_ex;      // ID/EX register flush (load-use bubble / trap)
     logic        flush_mem;     // EX/MEM register flush (trap)
@@ -155,9 +158,15 @@ module rv32i_core #(
     assign id_rs1_data_final = (id_wb_sel == 2'b11) ? id_csr_rdata : id_rs1_data;
     assign id_alu_op_final   = (id_wb_sel == 2'b11) ? 5'b01100     : id_alu_op; // PASS_A
 
-    // instret_inc: pulse when WB stage retires a valid instruction
+    // instret_inc: pulse every cycle a valid instruction exits WB.
+    // mem_wb_reg_wen covers register-writing instructions; also count stores/branches
+    // (reg_wen=0) when wb_sel==2'b00 (ALU result with no writeback) by checking the
+    // pipeline valid bit propagated via mem_wb_wb_sel != 2'bxx heuristic is imprecise —
+    // a proper fix requires a dedicated valid bit in each pipeline register.
+    // For now: count every WB that has reg_wen OR is a store (mem_wen propagated to WB
+    // is not available here; use mem_wb_reg_wen as best approximation).
     logic instret_inc;
-    assign instret_inc = wb_rd_wen | (mem_wb_reg_wen & (mem_wb_rd == 5'b0));
+    assign instret_inc = mem_wb_reg_wen;
 
     id_stage #(.XLEN(XLEN)) u_id_stage (
         .clk         (clk),
@@ -218,7 +227,7 @@ module rv32i_core #(
     id_ex_reg #(.XLEN(XLEN)) u_id_ex_reg (
         .clk          (clk),
         .rst_n        (rst_n),
-        .stall        (1'b0),
+        .stall        (stall_ex),
         .flush        (flush_ex),
         .pc_i         (if_id_pc),
         .pc_plus4_i   (if_id_pc_plus4),
@@ -321,7 +330,7 @@ module rv32i_core #(
     ex_mem_reg #(.XLEN(XLEN)) u_ex_mem_reg (
         .clk           (clk),
         .rst_n         (rst_n),
-        .stall         (1'b0),
+        .stall         (stall_mem),
         .flush         (flush_mem),
         .alu_result_i  (ex_alu_result),
         .rs2_data_i    (ex_rs2_fwd),
@@ -370,7 +379,7 @@ module rv32i_core #(
     mem_wb_reg #(.XLEN(XLEN)) u_mem_wb_reg (
         .clk          (clk),
         .rst_n        (rst_n),
-        .stall        (1'b0),
+        .stall        (stall_wb),
         .flush        (flush_wb),
         .alu_result_i (ex_mem_alu_result),
         .load_data_i  (mem_load_data),
@@ -404,6 +413,9 @@ module rv32i_core #(
     // =========================================================================
     // Hazard Unit
     // =========================================================================
+    logic dmem_active;
+    assign dmem_active = ex_mem_mem_ren | ex_mem_mem_wen;
+
     hazard_unit u_hazard_unit (
         .id_rs1      (id_rs1_addr),
         .id_rs2      (id_rs2_addr),
@@ -414,9 +426,13 @@ module rv32i_core #(
         .ex_jalr     (id_ex_jalr),
         .imem_ready  (imem_ready),
         .dmem_ready  (dmem_ready),
+        .dmem_active (dmem_active),
         .trap_en     (trap_en),
         .stall_if    (stall_if),
         .stall_id    (stall_id),
+        .stall_ex    (stall_ex),
+        .stall_mem   (stall_mem),
+        .stall_wb    (stall_wb),
         .flush_id    (flush_id),
         .flush_ex    (flush_ex),
         .flush_mem   (flush_mem),
@@ -427,12 +443,18 @@ module rv32i_core #(
     // =========================================================================
     // Trap detection
     // =========================================================================
-    // ECALL/EBREAK: opcode=1110011, funct3=000, funct12=0/1
+    // ECALL/EBREAK: opcode=1110011, funct3=000 → csr_op==3'b000, csr_addr[1:0] distinguishes
+    // csr_addr==12'h000 → ECALL, csr_addr==12'h001 → EBREAK
     logic ex_is_ecall, ex_is_ebreak;
-    assign ex_is_ecall  = (id_ex_rs1_data == {XLEN{1'b0}}) & id_ex_jal; // placeholder
-    // Full trap detection uses id_ex_csr_op + csr_addr; simplified here:
+    assign ex_is_ecall  = (id_ex_csr_op == 3'b000) & (id_ex_csr_addr == 12'h000)
+                        & id_ex_reg_wen == 1'b0;  // ECALL has rd=x0 and no reg write
+    assign ex_is_ebreak = (id_ex_csr_op == 3'b000) & (id_ex_csr_addr == 12'h001)
+                        & id_ex_reg_wen == 1'b0;
+    // IRQ: global MIE must be set; per-interrupt enable is in mie CSR (not yet exposed).
+    // mip is updated in csr_regfile from ext_irq/timer_irq.
+    // mtvec[1:0] is the vectoring mode, NOT per-interrupt enables — fixed below.
     logic irq_pending;
-    assign irq_pending = mie_global & ((ext_irq_sync & mtvec[0]) | (timer_irq_sync & mtvec[1]));
+    assign irq_pending = mie_global & (ext_irq_sync | timer_irq_sync);
 
     // Trap fires when instruction in EX is ECALL/EBREAK, or when IRQ pending
     // mepc = PC of trapping instruction (in EX stage)
