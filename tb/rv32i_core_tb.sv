@@ -166,19 +166,27 @@ module rv32i_core_tb;
         expected[8] = 32'd42;      exp_valid[8] = 1;
     end
 
-    int pass_cnt = 0, fail_cnt = 0;
+    // Declare at module scope so iverilog does not treat as a static initializer
+    int pass_cnt;
+    int fail_cnt;
+    int wb_rd;   // register index for the current WB write
+
+    initial begin
+        pass_cnt = 0;
+        fail_cnt = 0;
+    end
 
     always @(posedge clk) begin
         if (dbg_reg_we && dbg_reg_waddr != 5'b0) begin
-            int rd = dbg_reg_waddr;
-            $display("[WB  ] clk=%0t  x%0d <= 0x%08X", $time, rd, dbg_reg_wdata);
-            if (exp_valid[rd]) begin
-                if (dbg_reg_wdata === expected[rd]) begin
-                    $display("       PASS  x%0d = 0x%08X", rd, dbg_reg_wdata);
+            wb_rd = dbg_reg_waddr;
+            $display("[WB  ] clk=%0t  x%0d <= 0x%08X", $time, wb_rd, dbg_reg_wdata);
+            if (exp_valid[wb_rd]) begin
+                if (dbg_reg_wdata === expected[wb_rd]) begin
+                    $display("       PASS  x%0d = 0x%08X", wb_rd, dbg_reg_wdata);
                     pass_cnt++;
                 end else begin
                     $display("       FAIL  x%0d : got 0x%08X, want 0x%08X",
-                             rd, dbg_reg_wdata, expected[rd]);
+                             wb_rd, dbg_reg_wdata, expected[wb_rd]);
                     fail_cnt++;
                 end
             end
@@ -186,31 +194,22 @@ module rv32i_core_tb;
     end
 
     // -------------------------------------------------------------------------
-    // Halt detection: JAL x0, 0 loops forever at same PC
+    // Halt detection: JAL x0, 0 writes PC+4 to x0 at WB on every loop iteration.
+    // Detect the first such write; by that point all earlier instructions have
+    // already retired so checker counts are final.
     // -------------------------------------------------------------------------
-    logic [31:0] prev_pc;
-    int          same_pc_cnt;
-
     always @(posedge clk) begin
-        if (!rst_n) begin
-            prev_pc      <= 32'hFFFF_FFFF;
-            same_pc_cnt  <= 0;
-        end else begin
-            if (dbg_pc === prev_pc)
-                same_pc_cnt <= same_pc_cnt + 1;
-            else begin
-                same_pc_cnt <= 0;
-                prev_pc     <= dbg_pc;
-            end
-            if (same_pc_cnt >= 4) begin
-                $display("\n[HALT] PC stuck at 0x%08X — simulation complete.", dbg_pc);
-                $display("       PASS=%0d  FAIL=%0d", pass_cnt, fail_cnt);
-                if (fail_cnt == 0)
-                    $display("       *** ALL CHECKS PASSED ***");
-                else
-                    $display("       *** %0d CHECK(S) FAILED ***", fail_cnt);
-                $finish;
-            end
+        // JAL/JALR x0 writes PC+4 (nonzero) to x0.
+        // Reset-state NOP (ADDI x0,x0,0) also writes to x0 but with wdata=0.
+        if (rst_n && dbg_reg_we && dbg_reg_waddr == 5'b0 && dbg_reg_wdata != 32'b0) begin
+            $display("\n[HALT] JAL x0 at PC=0x%08X — simulation complete.",
+                     dbg_reg_wdata - 4);
+            $display("       PASS=%0d  FAIL=%0d", pass_cnt, fail_cnt);
+            if (fail_cnt == 0)
+                $display("       *** ALL CHECKS PASSED ***");
+            else
+                $display("       *** %0d CHECK(S) FAILED ***", fail_cnt);
+            $finish;
         end
     end
 

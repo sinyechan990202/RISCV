@@ -210,6 +210,7 @@ module rv32i_core #(
     // =========================================================================
     // ID/EX Pipeline Register
     // =========================================================================
+    logic             id_ex_valid;
     logic [XLEN-1:0] id_ex_pc, id_ex_pc_plus4;
     logic [XLEN-1:0] id_ex_rs1_data, id_ex_rs2_data, id_ex_imm;
     logic [4:0]      id_ex_rs1, id_ex_rs2, id_ex_rd;
@@ -229,6 +230,7 @@ module rv32i_core #(
         .rst_n        (rst_n),
         .stall        (stall_ex),
         .flush        (flush_ex),
+        .valid_i      (if_id_valid),
         .pc_i         (if_id_pc),
         .pc_plus4_i   (if_id_pc_plus4),
         .rs1_data_i   (id_rs1_data_final),
@@ -251,6 +253,7 @@ module rv32i_core #(
         .csr_op_i     (id_csr_op),
         .csr_addr_i   (id_csr_addr),
         .funct3_i     (id_mem_size),  // funct3[2:0] == mem_size[2:0] (same ISA field)
+        .id_ex_valid      (id_ex_valid),
         .id_ex_pc         (id_ex_pc),
         .id_ex_pc_plus4   (id_ex_pc_plus4),
         .id_ex_rs1_data   (id_ex_rs1_data),
@@ -416,18 +419,27 @@ module rv32i_core #(
     logic dmem_active;
     assign dmem_active = ex_mem_mem_ren | ex_mem_mem_wen;
 
+    // CSR RAW stall: CSRRW/CSRRS/CSRRC read rs1 in ID (reg_file, not forwarded).
+    // Stall while writer is in EX or MEM; reg_file bypass handles the WB case.
+    logic id_csr_uses_rs1;
+    assign id_csr_uses_rs1 = (id_csr_op != 3'b000) & ~id_csr_op[2];
+
     hazard_unit u_hazard_unit (
-        .id_rs1      (id_rs1_addr),
-        .id_rs2      (id_rs2_addr),
-        .ex_rd       (id_ex_rd),
-        .ex_mem_ren  (id_ex_mem_ren),
-        .branch_taken(ex_branch_taken),
-        .ex_jal      (id_ex_jal),
-        .ex_jalr     (id_ex_jalr),
-        .imem_ready  (imem_ready),
-        .dmem_ready  (dmem_ready),
-        .dmem_active (dmem_active),
-        .trap_en     (trap_en),
+        .id_rs1          (id_rs1_addr),
+        .id_rs2          (id_rs2_addr),
+        .ex_rd           (id_ex_rd),
+        .ex_mem_ren      (id_ex_mem_ren),
+        .id_csr_uses_rs1 (id_csr_uses_rs1),
+        .ex_reg_wen      (id_ex_reg_wen),
+        .mem_rd          (ex_mem_rd),
+        .mem_reg_wen     (ex_mem_reg_wen),
+        .branch_taken    (ex_branch_taken),
+        .ex_jal          (id_ex_jal),
+        .ex_jalr         (id_ex_jalr),
+        .imem_ready      (imem_ready),
+        .dmem_ready      (dmem_ready),
+        .dmem_active     (dmem_active),
+        .trap_en         (trap_en),
         .stall_if    (stall_if),
         .stall_id    (stall_id),
         .stall_ex    (stall_ex),
@@ -446,10 +458,11 @@ module rv32i_core #(
     // ECALL/EBREAK: opcode=1110011, funct3=000 → csr_op==3'b000, csr_addr[1:0] distinguishes
     // csr_addr==12'h000 → ECALL, csr_addr==12'h001 → EBREAK
     logic ex_is_ecall, ex_is_ebreak;
-    assign ex_is_ecall  = (id_ex_csr_op == 3'b000) & (id_ex_csr_addr == 12'h000)
-                        & id_ex_reg_wen == 1'b0;  // ECALL has rd=x0 and no reg write
-    assign ex_is_ebreak = (id_ex_csr_op == 3'b000) & (id_ex_csr_addr == 12'h001)
-                        & id_ex_reg_wen == 1'b0;
+    // id_ex_valid guards against reset/bubble state (all-zero) matching ECALL encoding
+    assign ex_is_ecall  = id_ex_valid & (id_ex_csr_op == 3'b000) & (id_ex_csr_addr == 12'h000)
+                        & (id_ex_reg_wen == 1'b0);
+    assign ex_is_ebreak = id_ex_valid & (id_ex_csr_op == 3'b000) & (id_ex_csr_addr == 12'h001)
+                        & (id_ex_reg_wen == 1'b0);
     // IRQ: global MIE must be set; per-interrupt enable is in mie CSR (not yet exposed).
     // mip is updated in csr_regfile from ext_irq/timer_irq.
     // mtvec[1:0] is the vectoring mode, NOT per-interrupt enables — fixed below.
@@ -458,7 +471,7 @@ module rv32i_core #(
 
     // Trap fires when instruction in EX is ECALL/EBREAK, or when IRQ pending
     // mepc = PC of trapping instruction (in EX stage)
-    assign trap_en    = irq_pending; // ECALL/EBREAK handled by hazard_unit extensions
+    assign trap_en    = irq_pending | ex_is_ecall | ex_is_ebreak;
     assign trap_mepc  = id_ex_pc;
     assign trap_mcause = irq_pending ? (ext_irq_sync ? 32'h8000_000B : 32'h8000_0007)
                                       : 32'h0000_000B; // environment call

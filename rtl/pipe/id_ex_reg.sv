@@ -11,6 +11,7 @@ module id_ex_reg #(
     input  logic             flush,
 
     // ── Inputs from ID stage ──────────────────────────────────────────
+    input  logic             valid_i,    // instruction is valid (not bubble/reset)
     input  logic [XLEN-1:0] pc_i,
     input  logic [XLEN-1:0] pc_plus4_i,
     input  logic [XLEN-1:0] rs1_data_i,
@@ -35,6 +36,7 @@ module id_ex_reg #(
     input  logic [2:0]      funct3_i,
 
     // ── Outputs to EX stage ───────────────────────────────────────────
+    output logic             id_ex_valid,
     output logic [XLEN-1:0] id_ex_pc,
     output logic [XLEN-1:0] id_ex_pc_plus4,
     output logic [XLEN-1:0] id_ex_rs1_data,
@@ -61,6 +63,7 @@ module id_ex_reg #(
 
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n || flush) begin
+            id_ex_valid    <= 1'b0;
             id_ex_pc       <= {XLEN{1'b0}};
             id_ex_pc_plus4 <= {XLEN{1'b0}};
             id_ex_rs1_data <= {XLEN{1'b0}};
@@ -84,6 +87,7 @@ module id_ex_reg #(
             id_ex_csr_addr <= 12'b0;
             id_ex_funct3   <= 3'b0;
         end else if (!stall) begin
+            id_ex_valid    <= valid_i;
             id_ex_pc       <= pc_i;
             id_ex_pc_plus4 <= pc_plus4_i;
             id_ex_rs1_data <= rs1_data_i;
