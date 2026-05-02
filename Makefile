@@ -1,6 +1,7 @@
 TOP      = rv32i_core
 TB       = tb/rv32i_core_tb.sv
 SIM_OUT  = sim.out
+VCD      = rv32i_core_tb.vcd
 
 SRCS = \
 	rtl/top/rv32i_core.sv \
@@ -34,9 +35,11 @@ $(SIM_OUT): $(SRCS) $(TB)
 sim: $(SIM_OUT)
 	vvp $(SIM_OUT)
 
-wave: $(SIM_OUT)
-	vvp $(SIM_OUT) -lxt2
-	gtkwave dump.vcd &
+wave: $(VCD)
+	gtkwave $(VCD) &
+
+$(VCD): $(SIM_OUT)
+	vvp $(SIM_OUT)
 
 clean:
-	rm -f $(SIM_OUT) *.vcd *.lxt
+	rm -f $(SIM_OUT) $(VCD)

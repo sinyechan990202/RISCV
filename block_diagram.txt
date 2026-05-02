@@ -1,0 +1,415 @@
+================================================================================
+  RV32I 5-Stage Pipelined Core  —  모듈 블록도
+  Top: rtl/top/rv32i_core.sv
+================================================================================
+
+
+────────────────────────────────────────────────────────────────────────────────
+  1. 모듈 계층 구조
+────────────────────────────────────────────────────────────────────────────────
+
+  rv32i_core                              rtl/top/rv32i_core.sv
+  ├── if_stage              [IF ]         rtl/if/if_stage.sv
+  │   ├── pc_reg                          rtl/if/pc_reg.sv
+  │   └── instr_mem_if                    rtl/if/instr_mem_if.sv
+  ├── if_id_reg             [REG]         rtl/pipe/if_id_reg.sv
+  ├── id_stage              [ID ]         rtl/id/id_stage.sv
+  │   ├── reg_file                        rtl/id/reg_file.sv
+  │   ├── imm_gen                         rtl/id/imm_gen.sv
+  │   └── csr_regfile                     rtl/id/csr_regfile.sv
+  ├── id_ex_reg             [REG]         rtl/pipe/id_ex_reg.sv
+  ├── ex_stage              [EX ]         rtl/ex/ex_stage.sv
+  │   ├── forwarding_unit                 rtl/ex/forwarding_unit.sv
+  │   ├── alu                             rtl/ex/alu.sv
+  │   └── branch_unit                     rtl/ex/branch_unit.sv
+  ├── ex_mem_reg            [REG]         rtl/pipe/ex_mem_reg.sv
+  ├── mem_stage             [MEM]         rtl/mem/mem_stage.sv
+  ├── mem_wb_reg            [REG]         rtl/pipe/mem_wb_reg.sv
+  ├── wb_stage              [WB ]         rtl/wb/wb_stage.sv
+  └── hazard_unit           [CTL]         rtl/ctrl/hazard_unit.sv
+
+
+────────────────────────────────────────────────────────────────────────────────
+  2. 파이프라인 데이터 경로
+────────────────────────────────────────────────────────────────────────────────
+
+  외부 인터페이스
+  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐
+  │    IMEM (외부)      │  │    DMEM (외부)      │  │   인터럽트 입력    │
+  │  imem_rdata[31:0]  │  │  dmem_rdata[31:0]  │  │  ext_irq           │
+  │  imem_ready        │  │  dmem_ready        │  │  timer_irq         │
+  └─────────┬──────────┘  └─────────┬──────────┘  └─────────┬──────────┘
+            │  (읽기 전용)           │  (읽기/쓰기)           │
+            │                       │                ┌───────▼────────────┐
+            │                       │                │  2FF CDC 동기화기   │
+            │                       │                │  ext_irq_sync       │
+            │                       │                │  timer_irq_sync     │
+            │                       │                └────────────────────┘
+            │                       │
+  ══════════════════════════════════════════════════════════════════════════════
+   IF 스테이지
+  ══════════════════════════════════════════════════════════════════════════════
+
+  ┌───────────────────────────────────────────────┐
+  │                   IF Stage                    │  ← stall_if
+  │                                               │  ← pc_sel[1:0]
+  │  ┌─────────────────────────────────────────┐  │  ← branch_target[31:0]
+  │  │              pc_reg  (FF)               │  │  ← jal_target[31:0]
+  │  │  reset=0x0000_0000                      │  │    (trap 시 mtvec로 대체)
+  │  │                                         │  │  ← jalr_target[31:0]
+  │  │  pc_sel  00 → PC + 4   (순차 실행)        │  │
+  │  │          01 → branch_target             │  │
+  │  │          10 → jal_target / mtvec        │  │
+  │  │          11 → jalr_target               │  │
+  │  └─────────────────────────────────────────┘  │
+  │  ┌─────────────────────────────────────────┐  │
+  │  │           instr_mem_if                  │  │
+  │  │  addr[1:0]≠00 → misalign_fault 검출      │  │
+  │  └─────────────────────────────────────────┘  │
+  │                                               │
+  │  imem_req = 1  (항상 fetch)                    │
+  │  imem_addr = PC                               │  ──► IMEM
+  │                                               │
+  │  instr_o  = flush||!ready ? NOP : imem_rdata  │  ◄── IMEM
+  │  if_valid = imem_ready && !flush              │
+  └──────────────────────┬────────────────────────┘
+                         │  pc[31:0], pc_plus4[31:0], instr[31:0], valid
+                         ▼
+  ╔══════════════════════════════════════════════╗
+  ║               IF/ID Register                 ║  stall = stall_id
+  ║  if_id_pc[31:0]                              ║  flush = flush_id  → NOP 삽입
+  ║  if_id_pc_plus4[31:0]                        ║
+  ║  if_id_instr[31:0]                           ║
+  ║  if_id_valid                                 ║
+  ╚══════════════════════╤═══════════════════════╝
+                         │
+  ══════════════════════════════════════════════════════════════════════════════
+   ID 스테이지
+  ══════════════════════════════════════════════════════════════════════════════
+                         │
+                         ▼
+  ┌───────────────────────────────────────────────┐
+  │                   ID Stage                     │
+  │                                               │
+  │  ┌─────────────────────────────────────────┐  │
+  │  │               reg_file                  │  │  ← wb_rd_addr[4:0]
+  │  │  x0(하드와이어드 0) ~ x31               │  │  ← wb_rd_wdata[31:0]  ← WB
+  │  │  WB→ID 동일 사이클 바이패스 내장         │  │  ← wb_rd_wen
+  │  └─────────────────────────────────────────┘  │  → rs1_data[31:0]
+  │                                               │  → rs2_data[31:0]
+  │  ┌─────────────────────────────────────────┐  │
+  │  │               imm_gen                   │  │
+  │  │  I-type:  { {20{[31]}}, [31:20] }       │  │  → imm[31:0]
+  │  │  S-type:  { {20{[31]}}, [31:25],[11:7] }│  │
+  │  │  B-type:  { {19{[31]}}, [31],[7],[30:25]│  │
+  │  │            [11:8], 1'b0 }               │  │
+  │  │  U-type:  { [31:12], 12'b0 }            │  │
+  │  │  J-type:  { {11{[31]}}, [31],[19:12],   │  │
+  │  │            [20],[30:21], 1'b0 }         │  │
+  │  │  ZIMM:    { 27'b0, [19:15] }            │  │
+  │  └─────────────────────────────────────────┘  │
+  │                                               │
+  │  ┌─────────────────────────────────────────┐  │  ← trap_en
+  │  │            csr_regfile                  │  │  ← mepc_in, mcause_in
+  │  │  mstatus (MIE/MPIE)                     │  │  ← ext_irq_sync, timer_irq_sync
+  │  │  mie, mtvec, mscratch                   │  │  ← instret_inc
+  │  │  mepc, mcause, mip                      │  │  → csr_rdata[31:0]
+  │  │  mcycle (64bit), minstret (64bit)       │  │  → mtvec[31:0]
+  │  └─────────────────────────────────────────┘  │  → mepc_out[31:0]
+  │                                               │  → mie_global
+  │  디코더 → 제어 신호:                              │
+  │  alu_op[4:0]          alu_src_a  alu_src_b    │
+  │  mem_ren  mem_wen     mem_size[2:0]           │
+  │  wb_sel[1:0]          reg_wen                 │
+  │  branch   jal   jalr                          │
+  │  csr_op[2:0]   csr_addr[11:0]                 │
+  │                                               │
+  │  CSR 명령어 특이사항:                             │
+  │  rs1_data_final = (wb_sel==11) ? csr_rdata    │
+  │                               : rs1_data      │
+  │  alu_op_final   = (wb_sel==11) ? PASS_A(01100)│
+  │                               : alu_op        │
+  └──────────────────────┬────────────────────────┘
+                         │
+                         ▼
+  ╔══════════════════════════════════════════════╗
+  ║               ID/EX Register                 ║  stall = stall_ex
+  ║  id_ex_valid                                 ║  flush = flush_ex  → 전 필드 0
+  ║  id_ex_pc[31:0]        id_ex_pc_plus4[31:0]  ║  (valid=0 → ECALL 오탐 방지)
+  ║  id_ex_rs1_data[31:0]  id_ex_rs2_data[31:0]  ║
+  ║  id_ex_imm[31:0]                             ║
+  ║  id_ex_rs1[4:0]        id_ex_rs2[4:0]        ║
+  ║  id_ex_rd[4:0]         id_ex_alu_op[4:0]     ║
+  ║  id_ex_alu_src_a       id_ex_alu_src_b       ║
+  ║  id_ex_mem_ren         id_ex_mem_wen         ║
+  ║  id_ex_mem_size[2:0]   id_ex_wb_sel[1:0]     ║
+  ║  id_ex_reg_wen         id_ex_funct3[2:0]     ║
+  ║  id_ex_branch          id_ex_jal             ║
+  ║  id_ex_jalr            id_ex_csr_op[2:0]     ║
+  ║  id_ex_csr_addr[11:0]                        ║
+  ╚══════════════════════╤═══════════════════════╝
+                         │
+  ══════════════════════════════════════════════════════════════════════════════
+   EX 스테이지
+  ══════════════════════════════════════════════════════════════════════════════
+                         │
+                         ▼
+  ┌───────────────────────────────────────────────┐
+  │                   EX Stage                    │
+  │                                               │
+  │  ┌─────────────────────────────────────────┐  │  ← ex_mem_rd[4:0]
+  │  │           forwarding_unit               │  │  ← ex_mem_reg_wen  (EX→EX)
+  │  │  fwd_a_sel  10: EX/MEM alu_result       │  │  ← mem_wb_rd[4:0]
+  │  │             01: WB  rd_wdata  (우선순위)  │  │  ← mem_wb_reg_wen  (MEM→EX)
+  │  │             00: ID/EX rs1_data          │  │
+  │  │  fwd_b_sel  10: EX/MEM alu_result       │  │
+  │  │             01: WB  rd_wdata            │  │
+  │  │             00: ID/EX rs2_data          │  │
+  │  └─────────────────────────────────────────┘  │
+  │                                               │
+  │  포워딩 MUX → ALU 소스 MUX:                      │
+  │  alu_a = alu_src_a ? id_ex_pc     : rs1_fwd   │
+  │  alu_b = alu_src_b ? id_ex_imm    : rs2_fwd   │
+  │                                               │
+  │  ┌─────────────────────────────────────────┐  │
+  │  │                  alu                    │  │
+  │  │  ADD   SUB   AND   OR    XOR            │  │  → alu_result[31:0]
+  │  │  SLL   SRL   SRA   SLT   SLTU           │  │
+  │  │  LUI   AUIPC  PASS_A                    │  │
+  │  └─────────────────────────────────────────┘  │
+  │                                               │
+  │  ┌─────────────────────────────────────────┐  │
+  │  │             branch_unit                 │  │  → branch_taken
+  │  │  조건평가(rs1_fwd, rs2_fwd):              │  │  → branch_target = PC + B-imm
+  │  │   BEQ BNE BLT BGE BLTU BGEU             │  │  → jal_target    = PC + J-imm
+  │  │                                         │  │  → jalr_target   = (rs1+imm)&~1
+  │  └─────────────────────────────────────────┘  │
+  │                                               │
+  │  rs2_fwd_o = rs2_fwd  (MEM stage store용)     │
+  └──────────────────────┬────────────────────────┘
+          │              │              │
+          │ branch_target│ jal_target   │ jalr_target
+          └──────────────┴──────────────┘
+                         │  → hazard_unit → pc_sel → IF Stage
+                         │
+                         │  alu_result, rs2_fwd, pc_plus4, rd, ctrl
+                         ▼
+  ╔══════════════════════════════════════════════╗
+  ║              EX/MEM Register                 ║  stall = stall_mem
+  ║  ex_mem_alu_result[31:0]                     ║  flush = flush_mem
+  ║  ex_mem_rs2_data[31:0]                       ║
+  ║  ex_mem_pc_plus4[31:0]                       ║
+  ║  ex_mem_rd[4:0]       ex_mem_reg_wen         ║
+  ║  ex_mem_mem_ren       ex_mem_mem_wen         ║
+  ║  ex_mem_mem_size[2:0] ex_mem_wb_sel[1:0]     ║
+  ╚══════════════════════╤═══════════════════════╝
+                         │
+  ══════════════════════════════════════════════════════════════════════════════
+   MEM 스테이지
+  ══════════════════════════════════════════════════════════════════════════════
+                         │
+                         ▼
+  ┌───────────────────────────────────────────────┐
+  │                  MEM Stage                    │
+  │                                               │
+  │  byte_off = alu_result[1:0]                   │
+  │                                               │
+  │  Byte Enable 생성:                             │
+  │    SZ_B / SZ_BU  →  be = 4'b0001 << byte_off  │
+  │    SZ_H / SZ_HU  →  be = 4'b0011 << byte_off  │
+  │    SZ_W          →  be = 4'b1111              │
+  │                                               │
+  │  Store 바이트 레인 정렬:                          │
+  │    SZ_B  →  { 4{rs2[7:0]}  }                  │
+  │    SZ_H  →  { 2{rs2[15:0]} }                  │
+  │    SZ_W  →  rs2_data                          │
+  │                                               │
+  │  Load 부호/제로 확장:                            │
+  │    SZ_B  →  {{ 24{byte[7]}  }, byte  }        │
+  │    SZ_H  →  {{ 16{half[15]} }, half  }        │
+  │    SZ_W  →  rdata_raw                         │
+  │    SZ_BU →  {  24'b0,          byte  }        │
+  │    SZ_HU →  {  16'b0,          half  }        │
+  │                                               │
+  │  dmem_req   = mem_ren | mem_wen               │  ──►  DMEM (외부)
+  │  dmem_we    = mem_wen                         │  ──►
+  │  dmem_be    = be[3:0]                         │  ──►
+  │  dmem_addr  = {alu_result[31:2], 2'b00}       │  ──►
+  │  dmem_wdata = wdata_shifted                   │  ──►
+  │  load_data  = 부호확장된 데이터                    │  ◄──
+  └──────────────────────┬────────────────────────┘
+                         │  alu_result, load_data, pc_plus4, rd, ctrl
+                         ▼
+  ╔══════════════════════════════════════════════╗
+  ║             MEM/WB Register                  ║  stall = stall_wb
+  ║  mem_wb_alu_result[31:0]                     ║  flush = flush_wb
+  ║  mem_wb_load_data[31:0]                      ║
+  ║  mem_wb_pc_plus4[31:0]                       ║
+  ║  mem_wb_rd[4:0]       mem_wb_reg_wen         ║
+  ║  mem_wb_wb_sel[1:0]                          ║
+  ╚══════════════════════╤═══════════════════════╝
+                         │
+  ══════════════════════════════════════════════════════════════════════════════
+   WB 스테이지
+  ══════════════════════════════════════════════════════════════════════════════
+                         │
+                         ▼
+  ┌───────────────────────────────────────────────┐
+  │                  WB Stage  (순수 조합논리)       │
+  │                                               │
+  │  wb_sel  00 → rd_wdata = alu_result  (R/I형)  │
+  │          01 → rd_wdata = load_data   (LW 등)  │
+  │          10 → rd_wdata = pc_plus4    (JAL/JALR)│
+  │          11 → (CSR: PASS_A 경유 alu_result)    │
+  │                                               │
+  │  rd_addr = mem_wb_rd                          │
+  │  rd_wen  = mem_wb_reg_wen                     │
+  └──────────────────────┬────────────────────────┘
+                         │  wb_rd_addr, wb_rd_wdata, wb_rd_wen
+                         ├──────────────────────────────────────────────────►
+                         │                                reg_file (ID Stage)
+                         │                              dbg_reg_we/waddr/wdata
+
+
+────────────────────────────────────────────────────────────────────────────────
+  3. 포워딩 경로 요약
+────────────────────────────────────────────────────────────────────────────────
+
+     ID       IF/ID      EX       EX/MEM      MEM      MEM/WB      WB
+  ┌──────┐  ╔══════╗  ┌──────┐  ╔══════╗  ┌──────┐  ╔══════╗  ┌──────┐
+  │      ├─►║      ║─►│      ├─►║      ║─►│      ├─►║      ║─►│      │
+  └──────┘  ╚══════╝  └──┬───┘  ╚══╤═══╝  └──────┘  ╚══╤═══╝  └──┬───┘
+                          ▲         │                     │          │
+                          │  EX→EX  │ ex_mem_alu_result   │          │
+                          │ (우선)  └─────────────────────┘          │
+                          │           ex_mem_rd                       │
+                          │           ex_mem_reg_wen                  │
+                          │                                           │
+                          │  MEM→EX                                   │
+                          └───────────────────────────────────────────┘
+                                    wb_rd_wdata  (= mem_wb_wb_sel 선택 결과)
+                                    mem_wb_rd
+                                    mem_wb_reg_wen
+
+     WB→ID 바이패스:  reg_file 내부에서 wb_rd_wen=1이면
+                     동일 사이클에 rs1/rs2 포트로 직접 전달
+
+
+────────────────────────────────────────────────────────────────────────────────
+  4. 해저드 제어  (hazard_unit — 순수 조합논리)
+────────────────────────────────────────────────────────────────────────────────
+
+  ┌───────────────────────────────────────────────────────────────────────────┐
+  │                           hazard_unit                                     │
+  │                                                                           │
+  │  입력                                 출력                                │
+  │  ────────────────────────────         ──────────────────────────────────  │
+  │                                                                           │
+  │  [Load-Use 검출]                      stall_if  ──► IF Stage (PC 유지)    │
+  │  ex_mem_ren        ─────┐             stall_id  ──► IF/ID Reg (유지)      │
+  │  ex_rd[4:0]        ─┐  ├──► load_    stall_ex  ──► ID/EX Reg (유지)      │
+  │  id_rs1[4:0]       ─┤  │    use      stall_mem ──► EX/MEM Reg (유지)     │
+  │  id_rs2[4:0]       ─┘  │    hazard   stall_wb  ──► MEM/WB Reg (유지)     │
+  │                         │                                                  │
+  │  [CSR RAW 검출]          │             flush_id  ──► IF/ID Reg (NOP 삽입) │
+  │  id_csr_uses_rs1   ─┐  ├──► csr_     flush_ex  ──► ID/EX Reg (NOP 삽입) │
+  │  ex_reg_wen        ─┤  │    raw      flush_mem ──► EX/MEM Reg (NOP 삽입) │
+  │  id_ex_rd[4:0]     ─┤  │    hazard   flush_wb  ──► MEM/WB Reg (NOP 삽입) │
+  │  ex_mem_reg_wen    ─┤  │                                                  │
+  │  mem_rd[4:0]       ─┘  │             pc_sel[1:0] ──► IF Stage             │
+  │                         │              00 = PC+4                           │
+  │  [제어 해저드]           │              01 = branch_target                 │
+  │  branch_taken      ─┐  ├──► control   10 = jal_target / mtvec             │
+  │  ex_jal            ─┤  │    hazard    11 = jalr_target                    │
+  │  ex_jalr           ─┘  │                                                  │
+  │                         │                                                  │
+  │  [트랩]                  │                                                  │
+  │  trap_en           ─────┼──► trap flush                                   │
+  │                         │                                                  │
+  │  [메모리 지연]            │                                                  │
+  │  imem_ready        ─┐  └──► mem_not_ready                                 │
+  │  dmem_ready        ─┤                                                     │
+  │  dmem_active       ─┘                                                     │
+  └───────────────────────────────────────────────────────────────────────────┘
+
+  우선순위 / 동작 정의:
+
+  상황              stall_if/id  flush_id  flush_ex  pc_sel
+  ──────────────    ───────────  ────────  ────────  ──────
+  trap_en               0          1         1         10  (mtvec)
+  branch_taken          0          1         1         01
+  ex_jal                0          1         1         10
+  ex_jalr               0          1         1         11
+  load_use              1          0         1         00
+  csr_raw               1          0         1         00
+  mem_not_ready         1          0         0         00  (전 스테이지 동결)
+
+  ※ trap_en은 TOP에서 pc_sel을 10으로 강제하고
+     jal_target 슬롯에 mtvec을 주입하여 처리
+
+
+────────────────────────────────────────────────────────────────────────────────
+  5. 트랩 / 인터럽트 처리
+────────────────────────────────────────────────────────────────────────────────
+
+  ECALL / EBREAK 검출  (EX 스테이지에서 조합논리):
+
+    ex_is_ecall  = id_ex_valid
+                 & (id_ex_csr_op  == 3'b000)
+                 & (id_ex_csr_addr == 12'h000)
+                 & (id_ex_reg_wen == 0)
+
+    ex_is_ebreak = id_ex_valid
+                 & (id_ex_csr_op  == 3'b000)
+                 & (id_ex_csr_addr == 12'h001)
+                 & (id_ex_reg_wen == 0)
+
+    ※ id_ex_valid = 0 (리셋/버블)이면 올-제로 상태가 ECALL로 오탐되는 것을 방지
+
+  IRQ 검출:
+    irq_pending = mie_global & (ext_irq_sync | timer_irq_sync)
+
+  최종 트랩 신호:
+    trap_en = irq_pending | ex_is_ecall | ex_is_ebreak
+
+  trap_en = 1 시 TOP 동작:
+    PC      ← mtvec          (if_pc_sel=2'b10, jal_target 슬롯에 mtvec 주입)
+    mepc    ← id_ex_pc       (EX 스테이지의 현재 PC)
+    mcause  ← 0x8000_000B    (ext_irq: 외부 인터럽트)
+              0x8000_0007    (timer_irq: 타이머 인터럽트)
+              0x0000_000B    (ECALL: 환경 호출)
+    csr_regfile 내부:
+      mstatus[7] (MPIE) ← mstatus[3] (MIE)
+      mstatus[3] (MIE)  ← 0          (인터럽트 비활성화)
+    flush_id = 1, flush_ex = 1  (IF/ID, ID/EX 버블 삽입)
+
+  MRET (미구현):
+    소프트웨어에서  JALR x0, mepc, 0  으로 복귀 가능
+
+
+────────────────────────────────────────────────────────────────────────────────
+  6. 주요 신호 흐름 요약
+────────────────────────────────────────────────────────────────────────────────
+
+  신호               생성 위치    → 소비 위치
+  ─────────────────  ──────────    ──────────────────────────────────────────
+  imem_req/addr      IF            → 외부 IMEM
+  imem_rdata         외부 IMEM     → IF (instr_o)
+  dmem_req/we/be/    MEM           → 외부 DMEM
+    addr/wdata
+  dmem_rdata         외부 DMEM     → MEM (load_data)
+  branch_target      EX            → IF (pc_sel=01)
+  jal_target         EX            → IF (pc_sel=10) / TOP이 mtvec으로 대체 가능
+  jalr_target        EX            → IF (pc_sel=11)
+  branch_taken       EX            → hazard_unit
+  wb_rd_wdata        WB            → reg_file (WB→ID 바이패스)
+                                  → ex_stage (MEM→EX 포워딩)
+  ex_mem_alu_result  EX/MEM Reg    → ex_stage (EX→EX 포워딩)
+                                  → mem_stage (MEM 주소/데이터)
+  trap_en            TOP (조합)    → hazard_unit, csr_regfile, IF pc_sel
+  mtvec              csr_regfile   → TOP (트랩 시 if_jal_target_muxed)
+  dbg_pc             IF            → (외부 디버그)
+  dbg_reg_we/waddr/  WB            → (외부 디버그 / TB 체커)
+    wdata
+
+================================================================================
