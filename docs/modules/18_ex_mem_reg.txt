@@ -1,0 +1,59 @@
+================================================================================
+  모듈명: ex_mem_reg
+  경로:   rtl/pipe/ex_mem_reg.sv
+  계층:   EX ↔ MEM 파이프라인 레지스터
+================================================================================
+
+[ 역할 ]
+────────────────────────────────────────────────────────────────────────────────
+EX 단계와 MEM 단계 사이의 파이프라인 레지스터.
+EX 단계의 출력(ALU 결과, 포워딩된 rs2, PC+4, 목적 레지스터 주소 및 제어 신호)을
+래치하여 다음 사이클의 MEM 단계에 공급한다.
+
+이 레지스터의 출력은 두 곳에서 읽힌다:
+  1) MEM 단계: 메모리 접근 수행
+  2) forwarding_unit: EX→EX 포워딩 소스 (ex_mem_alu_result, ex_mem_rd, ex_mem_reg_wen)
+
+[ 보유 필드 ]
+────────────────────────────────────────────────────────────────────────────────
+  alu_result  — ALU 연산 결과 (메모리 주소 또는 WB 데이터)
+  rs2_data    — 포워딩된 rs2 값 (STORE용 데이터)
+  pc_plus4    — PC+4 (JAL/JALR 링크 레지스터용)
+  rd[4:0]     — 목적 레지스터 주소
+  mem_ren     — 메모리 읽기 인에이블
+  mem_wen     — 메모리 쓰기 인에이블
+  mem_size    — 메모리 접근 크기
+  wb_sel      — WB 데이터 선택
+  reg_wen     — 레지스터 쓰기 인에이블
+
+[ stall / flush 동작 ]
+────────────────────────────────────────────────────────────────────────────────
+  flush (rst_n 또는 flush_mem):
+    모든 필드 ← 0 (reg_wen=0, mem_ren=0, mem_wen=0)
+
+  stall (stall_mem — 메모리 백프레셔만 해당):
+    홀드
+
+  트랩: flush_mem=0 → EX/MEM 레지스터는 flush하지 않음
+  → 트랩 발생 전 메모리 명령(MEM 단계 이미 진입)은 정상 완료 (precise trap)
+
+[ 동작 예시 ]
+────────────────────────────────────────────────────────────────────────────────
+  예시 1) ADD x3, x1, x2
+    EX에서 alu_result=8, rd=3, reg_wen=1, wb_sel=00
+    EX/MEM 레지스터: ex_mem_alu_result=8, ex_mem_rd=3, ex_mem_reg_wen=1
+    → MEM 단계: 메모리 접근 없음 (mem_ren=0, mem_wen=0)
+    → forwarding_unit: mem_rd=3, mem_reg_wen=1 → EX→EX 소스로 활용 가능
+
+  예시 2) LW x11, 0(x0)
+    alu_result=0x00(주소), rd=11, mem_ren=1, wb_sel=01(Load)
+    → MEM 단계: dmem_req=1, dmem_we=0, dmem_addr=0x00
+    → forwarding_unit: mem_rd=11, mem_reg_wen=1
+    ※ 단, load-use인 경우 이미 stall 처리됨
+
+  예시 3) SW x3, 0(x0)
+    alu_result=0x00(주소), rs2_data=8(store 데이터), mem_wen=1, reg_wen=0
+    → MEM 단계: dmem_we=1, dmem_wdata=8
+    → forwarding_unit: mem_reg_wen=0 → EX→EX 포워딩 소스 아님
+
+================================================================================

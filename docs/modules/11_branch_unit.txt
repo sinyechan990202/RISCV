@@ -1,0 +1,85 @@
+================================================================================
+  모듈명: branch_unit
+  경로:   rtl/ex/branch_unit.sv
+  계층:   EX 스테이지 내부
+================================================================================
+
+[ 역할 ]
+────────────────────────────────────────────────────────────────────────────────
+브랜치 조건 판정과 브랜치/점프 타깃 주소 계산을 담당하는 순수 조합 논리 모듈.
+EX 단계에서 포워딩된 rs1/rs2 값을 사용하여 분기 여부를 결정하고,
+branch_target, jal_target, jalr_target 세 가지 주소를 모두 출력한다.
+
+출력된 타깃 중 어떤 것을 PC에 쓸지는 hazard_unit의 pc_sel이 결정한다.
+
+[ 지원 브랜치 조건 (funct3) ]
+────────────────────────────────────────────────────────────────────────────────
+  funct3 | 조건     | 설명
+  -------|----------|------------------------------------
+  000    | BEQ      | rs1 == rs2 (같으면 분기)
+  001    | BNE      | rs1 != rs2 (다르면 분기)
+  100    | BLT      | $signed(rs1) < $signed(rs2) (부호 비교)
+  101    | BGE      | $signed(rs1) >= $signed(rs2)
+  110    | BLTU     | rs1 < rs2 (무부호 비교)
+  111    | BGEU     | rs1 >= rs2 (무부호)
+
+[ 주요 포트 ]
+────────────────────────────────────────────────────────────────────────────────
+  rs1_i / rs2_i   — 포워딩된 소스 레지스터 값
+  pc_i            — 현재 EX 단계의 PC
+  imm_i           — B-type 또는 J-type 즉치값
+  funct3_i        — 브랜치 조건 코드
+  branch_i        — 브랜치 명령어 여부
+  jal_i           — JAL 명령어 여부
+  jalr_i          — JALR 명령어 여부
+
+  branch_taken_o  — 브랜치 성립 여부 (1이면 분기)
+  branch_target_o — PC + B-type imm
+  jal_target_o    — PC + J-type imm
+  jalr_target_o   — (rs1 + I-type imm) & ~1 (LSB 강제 0)
+
+[ 핵심 내부 로직 ]
+────────────────────────────────────────────────────────────────────────────────
+  브랜치 조건:
+    cond = funct3에 따른 rs1/rs2 비교 결과
+
+  branch_taken_o  = branch_i & cond
+    → branch_i=1이고 조건도 성립할 때만 분기
+
+  타깃 주소:
+    branch_target_o = pc_i + imm_i   (B-type imm으로 계산)
+    jal_target_o    = pc_i + imm_i   (J-type imm으로 계산, 같은 수식)
+    jalr_target_o   = (rs1_i + imm_i) & {{(XLEN-1){1'b1}}, 1'b0}
+                      → 목적지 주소의 LSB를 항상 0으로 클리어
+                        (RISC-V 스펙: JALR 타깃은 반드시 짝수)
+
+  JAL/JALR 조건:
+    hazard_unit이 ex_jal/ex_jalr 신호를 보고 pc_sel=2'b10/11 선택
+    branch_taken_o는 BRANCH 명령에만 관여
+
+[ 동작 예시 ]
+────────────────────────────────────────────────────────────────────────────────
+  예시 1) BEQ x1, x2 — rs1=5, rs2=3, funct3=000(BEQ)
+    cond = (5 == 3) = 0 → branch_taken_o=0 (분기 안 함)
+    branch_target_o = PC+imm (계산은 되지만 사용 안 됨)
+
+  예시 2) BNE x1, x2, +8 — rs1=5, rs2=3, PC=0x34
+    funct3=001(BNE), cond=(5≠3)=1, branch_i=1
+    → branch_taken_o=1
+    → branch_target_o = 0x34 + 8 = 0x3C
+
+  예시 3) JAL x15, +8 — PC=0x44
+    jal_i=1, imm=+8
+    → jal_target_o = 0x44 + 8 = 0x4C
+    → branch_taken_o=0 (branch_i=0이므로)
+    → hazard_unit이 ex_jal=1 감지 → pc_sel=2'b10
+
+  예시 4) JALR x15, x14, 0 — rs1=x14=0x50, imm=0, PC=0x44
+    → jalr_target_o = (0x50 + 0) & ~1 = 0x50
+    → hazard_unit이 ex_jalr=1 감지 → pc_sel=2'b11
+
+  예시 5) BLT x2, x1 — rs1=3(부호있음), rs2=5
+    funct3=100(BLT), cond=($signed(3) < $signed(5))=1
+    → branch_taken_o=1
+
+================================================================================

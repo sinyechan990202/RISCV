@@ -1,0 +1,53 @@
+================================================================================
+  모듈명: if_id_reg
+  경로:   rtl/pipe/if_id_reg.sv
+  계층:   IF ↔ ID 파이프라인 레지스터
+================================================================================
+
+[ 역할 ]
+────────────────────────────────────────────────────────────────────────────────
+IF 단계와 ID 단계 사이의 파이프라인 레지스터.
+IF 단계에서 인출한 PC, PC+4, 명령어, valid 신호를 래치하여 다음 사이클의
+ID 단계에 전달한다.
+
+stall/flush 제어:
+  - stall=1: 현재 값 유지 (PC 홀드와 함께, ID 단계에 같은 명령 재공급)
+  - flush=1: NOP(0x00000013)과 0 값으로 초기화 (제어 해저드 버블 삽입)
+  - flush가 stall보다 우선 (리다이렉트는 스톨을 무시)
+  - rst_n=0: NOP + 0으로 초기화
+
+[ 주요 포트 ]
+────────────────────────────────────────────────────────────────────────────────
+  stall     — hazard_unit stall_id: 1이면 레지스터 홀드
+  flush     — hazard_unit flush_id: 1이면 NOP 삽입
+  pc_i, pc_plus4_i, instr_i, valid_i — IF 단계 입력
+  if_id_pc, if_id_pc_plus4, if_id_instr, if_id_valid — ID 단계 출력
+
+[ 핵심 내부 로직 ]
+────────────────────────────────────────────────────────────────────────────────
+  @(posedge clk or negedge rst_n):
+    if (!rst_n) → {pc, pc_plus4, instr, valid} ← {0, 0, NOP, 0}
+    else if (flush) → {pc, pc_plus4, instr, valid} ← {0, 0, NOP, 0}
+    else if (!stall) → {pc, pc_plus4, instr, valid} ← 입력값 래치
+
+  flush와 rst_n의 동작은 동일(NOP+0).
+  stall=1 && flush=0이면 래치 불변.
+
+[ 동작 예시 ]
+────────────────────────────────────────────────────────────────────────────────
+  예시 1) 정상 실행
+    T0: pc_i=0x00, instr_i=0x00500093(ADDI), valid_i=1
+    T1: if_id_pc=0x00, if_id_instr=0x00500093, if_id_valid=1
+
+  예시 2) Load-use stall (stall=1, flush=0)
+    T1: stall=1 → T2: if_id_pc, if_id_instr 값 변화 없음
+    → ID 단계가 같은 명령을 한 사이클 더 처리
+
+  예시 3) BNE taken flush (flush=1)
+    T2: flush=1 → T3: if_id_instr=NOP(0x00000013), if_id_valid=0
+    → ID 단계에서 NOP 처리 (잘못된 경로 명령 폐기)
+
+  예시 4) stall과 flush 동시 발생 (우선순위: flush > stall)
+    flush=1이 우선: NOP 삽입 (리다이렉트)
+
+================================================================================

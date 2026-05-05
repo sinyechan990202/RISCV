@@ -1,0 +1,368 @@
+================================================================================
+  rv32i_core TOP — 외부 포트로 데이터가 들어오는 과정
+================================================================================
+
+  rv32i_core는 외부와 딱 3가지 경계에서만 데이터를 주고받는다.
+  ① 명령어 메모리 (imem)
+  ② 데이터 메모리 (dmem)
+  ③ 인터럽트 + 디버그
+
+  이 파일은 각 포트가 어느 내부 신호로 연결되고, 어디서 실제로 사용되는지를
+  "경계 → TOP 내부 배선 → 최초 소비 모듈" 흐름으로 정리한다.
+
+================================================================================
+  포트 목록 및 방향
+================================================================================
+
+  방향  | 포트 이름      | 폭     | 연결 대상
+  ------|----------------|--------|--------------------------------------------
+  IN    | clk            | 1      | 모든 always_ff 블록
+  IN    | rst_n          | 1      | 모든 always_ff 블록 (액티브 로우)
+  ──────────────────────── 명령어 메모리 ─────────────────────────────────────
+  OUT   | imem_req       | 1      | if_stage → imem 요청 (항상 1)
+  OUT   | imem_addr      | 32     | if_stage → 현재 PC 값
+  IN    | imem_rdata     | 32     | 외부 메모리 → if_stage → IF/ID 레지스터
+  IN    | imem_ready     | 1      | 외부 메모리 → if_stage, hazard_unit
+  ──────────────────────── 데이터 메모리 ─────────────────────────────────────
+  OUT   | dmem_req       | 1      | mem_stage → dmem 요청
+  OUT   | dmem_we        | 1      | mem_stage → 쓰기 여부
+  OUT   | dmem_be        | 4      | mem_stage → 바이트 인에이블
+  OUT   | dmem_addr      | 32     | mem_stage → 워드 정렬 주소
+  OUT   | dmem_wdata     | 32     | mem_stage → 스토어 데이터
+  IN    | dmem_rdata     | 32     | 외부 메모리 → mem_stage → MEM/WB 레지스터
+  IN    | dmem_ready     | 1      | 외부 메모리 → mem_stage, hazard_unit
+  ──────────────────────── 인터럽트 ──────────────────────────────────────────
+  IN    | ext_irq        | 1      | 2-FF CDC → csr_regfile, trap 판정
+  IN    | timer_irq      | 1      | 2-FF CDC → csr_regfile, trap 판정
+  ──────────────────────── 디버그 출력 ───────────────────────────────────────
+  OUT   | dbg_pc         | 32     | if_stage의 if_pc (현재 IF 단계 PC)
+  OUT   | dbg_reg_we     | 1      | wb_stage의 rd_wen_o
+  OUT   | dbg_reg_waddr  | 5      | wb_stage의 rd_addr_o
+  OUT   | dbg_reg_wdata  | 32     | wb_stage의 rd_wdata_o
+
+================================================================================
+  ① 클럭 / 리셋 포트
+================================================================================
+
+  clk, rst_n
+    │
+    ├──→ pc_reg          (PC 레지스터 클럭/리셋)
+    ├──→ if_id_reg       (파이프 레지스터 1)
+    ├──→ id_ex_reg       (파이프 레지스터 2)
+    ├──→ ex_mem_reg      (파이프 레지스터 3)
+    ├──→ mem_wb_reg      (파이프 레지스터 4)
+    ├──→ reg_file        (레지스터 파일, 쓰기 동기화)
+    ├──→ csr_regfile     (CSR 레지스터 파일)
+    └──→ 2-FF CDC FF     (인터럽트 동기화)
+
+  rst_n = 0 (리셋):
+    → 모든 파이프라인 레지스터 → NOP / 0 초기화
+    → PC → 0x00000000
+    → 다음 클럭부터 PC=0x00에서 fetch 시작
+
+================================================================================
+  ② 명령어 메모리 포트 — imem
+================================================================================
+
+  ┌──────────────┐           ┌──────────────┐        ┌──────────────────┐
+  │ 외부 imem    │           │   rv32i_core │        │   if_stage       │
+  │              │           │    (TOP)     │        │                  │
+  │              │ imem_rdata│              │        │  instr_o MUX     │
+  │  명령어 데이터├──────────→│──────────────┼───────→│  (flush/ready)   │
+  │              │           │              │        │       ↓          │
+  │              │ imem_ready│              │        │  if_id_reg으로   │
+  │  준비 신호   ├──────────→│──────────────┼──┬────→│  if_valid 생성   │
+  │              │           │              │  │     └──────────────────┘
+  │              │ imem_req  │              │  │
+  │  요청 수신   │←──────────┤←─────────────┤  │     ┌──────────────────┐
+  │              │           │              │  └────→│  hazard_unit     │
+  │  주소 수신   │←──────────┤←─────────────┤        │  (stall 판정)    │
+  │              │ imem_addr │              │        └──────────────────┘
+  └──────────────┘           └──────────────┘
+
+  imem_rdata 경로:
+    외부 imem_rdata
+      → TOP 포트 imem_rdata
+        → if_stage.imem_rdata
+          → instr_o MUX: flush=0 && ready=1 이면 그대로 통과
+            → if_id_reg.instr_i
+              → if_id_instr (ID 단계로 전달)
+
+  imem_ready 경로:
+    외부 imem_ready
+      → TOP 포트 imem_ready
+        ├─→ if_stage.imem_ready
+        │     → if_valid = imem_ready && !flush
+        │     → instr_o = (!ready) ? NOP : imem_rdata
+        └─→ hazard_unit.imem_ready
+              → mem_not_ready = ~imem_ready | ...
+              → stall_if/id/ex/mem/wb = 1  (전체 파이프라인 동결)
+
+  imem_req, imem_addr 경로 (출력):
+    if_stage: imem_req = 1 (항상)
+              imem_addr = pc_current (현재 PC)
+      → TOP 포트 imem_req, imem_addr → 외부 imem
+
+  ─── 동작 예시: ADD x3, x1, x2 fetch ──────────────────────────────────────
+
+    외부에서 imem_rdata = 0x0020_81B3, imem_ready = 1 인가
+
+    TOP 수신:
+      imem_rdata = 0x0020_81B3
+      imem_ready = 1
+
+    if_stage 처리:
+      flush = 0 (pc_sel=00)
+      instr_o = imem_rdata = 0x0020_81B3  ← NOP 삽입 안 함
+      if_valid = 1
+
+    IF/ID 레지스터 래치:
+      if_id_instr = 0x0020_81B3 → 다음 사이클 ID 단계로 공급
+
+  ─── 동작 예시: imem_ready = 0 (메모리 지연) ───────────────────────────────
+
+    외부에서 imem_ready = 0 인가
+
+    if_stage:
+      instr_o  = NOP  (0x0000_0013)      ← 유효하지 않은 명령 차단
+      if_valid = 0
+
+    hazard_unit:
+      mem_not_ready = ~0 = 1
+      stall_if = stall_id = stall_ex = stall_mem = stall_wb = 1
+      → 전체 파이프라인 동결, PC 변화 없음
+
+================================================================================
+  ③ 데이터 메모리 포트 — dmem
+================================================================================
+
+  ┌──────────────┐           ┌──────────────┐        ┌──────────────────┐
+  │ 외부 dmem    │           │   rv32i_core │        │   mem_stage      │
+  │              │           │    (TOP)     │        │                  │
+  │              │ dmem_rdata│              │        │  load_data_o     │
+  │  읽기 데이터 ├──────────→│──────────────┼───────→│  (크기/확장)     │
+  │              │           │              │        │       ↓          │
+  │              │ dmem_ready│              │        │  mem_wb_reg으로  │
+  │  준비 신호   ├──────────→│──────────────┼──┬────→│  (load_data)     │
+  │              │           │              │  │     └──────────────────┘
+  │  요청 수신   │←──────────┤ dmem_req     │  │
+  │  쓰기 수신   │←──────────┤ dmem_we      │  │     ┌──────────────────┐
+  │  BE 수신     │←──────────┤ dmem_be      │  └────→│  hazard_unit     │
+  │  주소 수신   │←──────────┤ dmem_addr    │        │  dmem_active 체크│
+  │  쓰기데이터  │←──────────┤ dmem_wdata   │        └──────────────────┘
+  └──────────────┘           └──────────────┘
+
+  dmem_rdata 경로:
+    외부 dmem_rdata
+      → TOP 포트 dmem_rdata
+        → mem_stage.dmem_rdata
+          → load_data_o: 크기(SZ_W/H/B)에 맞게 추출 + 부호 확장
+            → mem_wb_reg.load_data_i
+              → mem_wb_load_data (WB 단계로 전달)
+                → wb_stage: wb_sel=01이면 rd_wdata = load_data
+                  → reg_file 쓰기
+
+  dmem_ready 경로:
+    외부 dmem_ready
+      → TOP 포트 dmem_ready
+        ├─→ mem_stage.dmem_ready   (ready_o 패스스루)
+        └─→ hazard_unit.dmem_ready
+              dmem_active = ex_mem_mem_ren | ex_mem_mem_wen
+              mem_not_ready = ~dmem_ready & dmem_active
+              → 전체 파이프라인 stall
+
+  dmem_req/we/be/addr/wdata 경로 (출력):
+    mem_stage가 계산 후 TOP 포트로 직접 연결:
+      dmem_req   = mem_ren_i | mem_wen_i
+      dmem_we    = mem_wen_i
+      dmem_be    = 바이트 인에이블 (주소 오프셋 + 접근 크기로 계산)
+      dmem_addr  = {alu_result[31:2], 2'b00}  (워드 정렬)
+      dmem_wdata = 레인 정렬된 store 데이터
+
+  ─── 동작 예시: LW x11, 0(x0) ──────────────────────────────────────────────
+
+    MEM 단계 (T4):
+      dmem_req=1, dmem_we=0, dmem_be=4'b1111, dmem_addr=0x00000000
+      → 외부 dmem에 읽기 요청 전달
+
+    외부 dmem 응답:
+      dmem_rdata = 0x00000008 (mem[0]=8), dmem_ready=1
+
+    TOP 수신 → mem_stage:
+      rdata_raw = 0x00000008
+      mem_size = SZ_W(010): load_data_o = rdata_raw = 8
+
+    MEM/WB 래치 → WB:
+      wb_sel=01 → rd_wdata = load_data = 8
+      regs[11] ← 8
+
+  ─── 동작 예시: SW x3, 0(x0) ───────────────────────────────────────────────
+
+    EX 단계: alu_result=0(주소), rs2_fwd=8(x3 값)
+    EX/MEM 래치: ex_mem_alu_result=0, ex_mem_rs2_data=8, mem_wen=1
+
+    MEM 단계 (T4):
+      dmem_req=1, dmem_we=1
+      dmem_be=4'b1111 (SZ_W, byte_off=0)
+      dmem_addr=0x00000000
+      dmem_wdata=8 (레인 정렬: SZ_W → rs2 그대로)
+      → 외부 dmem에 쓰기 요청 전달
+
+================================================================================
+  ④ 인터럽트 포트 — ext_irq / timer_irq
+================================================================================
+
+  외부 인터럽트 신호는 비동기(async)이므로 반드시 동기화가 필요하다.
+  TOP에서 2-FF 동기화기(CDC)를 통해 처리한다.
+
+  ┌──────────────────────────────────────────────────────────────────────────┐
+  │  2-FF Synchronizer (메타스타빌리티 방지)                                │
+  │                                                                          │
+  │                ┌────┐          ┌────┐                                   │
+  │  ext_irq ─────→│ FF1│─────────→│ FF2│──→ ext_irq_sync                 │
+  │                └────┘          └────┘                                   │
+  │                clk↑            clk↑                                     │
+  │                                                                          │
+  │  timer_irq ─→ (동일 구조) ──→ timer_irq_sync                           │
+  └──────────────────────────────────────────────────────────────────────────┘
+
+  동기화 로직 (TOP):
+    always_ff @(posedge clk or negedge rst_n):
+      {ext_irq_sync,   ext_irq_s}   <= {ext_irq_s,   ext_irq}
+      {timer_irq_sync, timer_irq_s} <= {timer_irq_s, timer_irq}
+
+  동기화 후 신호의 소비 경로:
+    ext_irq_sync
+      ├─→ csr_regfile.ext_irq   → mip[11] (MEIP) 비트 갱신
+      └─→ TOP: irq_pending = mie_global & (ext_irq_sync | timer_irq_sync)
+                → trap_en 판정에 기여
+
+    timer_irq_sync
+      ├─→ csr_regfile.timer_irq → mip[7]  (MTIP) 비트 갱신
+      └─→ TOP: irq_pending (위와 동일)
+
+  trap_en 생성 (TOP 내부 조합 논리):
+    ┌───────────────────────────────────────────────────────────────┐
+    │  irq_pending  = mie_global & (ext_irq_sync | timer_irq_sync) │
+    │  ex_is_ecall  = id_ex_valid & csr_op==000 & csr_addr==0x000  │
+    │  ex_is_ebreak = id_ex_valid & csr_op==000 & csr_addr==0x001  │
+    │                                                               │
+    │  trap_en = irq_pending | ex_is_ecall | ex_is_ebreak          │
+    └───────────────────────────────────────────────────────────────┘
+
+  trap_en = 1이 되면:
+    ┌─────────────────────────────────────────────────────────────┐
+    │  PC 리다이렉트 MUX (TOP)                                    │
+    │                                                             │
+    │  if_pc_sel = trap_en ? 2'b10 : hz_pc_sel                  │
+    │                         ↑                                  │
+    │                    jal 슬롯을 트랩 벡터로 재활용            │
+    │                                                             │
+    │  if_jal_target_muxed = trap_en ? mtvec : ex_jal_target     │
+    │                                   ↑                        │
+    │                             CSR[0x305] (mtvec)             │
+    └─────────────────────────────────────────────────────────────┘
+
+    hazard_unit: flush_id=1, flush_ex=1  (IF/ID, ID/EX 버블)
+    csr_regfile: mepc ← EX 단계 PC, mcause ← 원인 코드, MIE ← 0
+
+  ─── 동작 예시: ext_irq 인터럽트 발생 ──────────────────────────────────────
+
+    T0: ext_irq = 1 (비동기로 High)
+    T1: ext_irq_s = 1  (첫 번째 FF 샘플)
+    T2: ext_irq_sync = 1  (두 번째 FF 통과, 이제 동기화 완료)
+
+    T2에서:
+      mip[11] ← 1 (csr_regfile)
+      irq_pending = mstatus[3](MIE) & 1 = mie_global
+
+      mie_global=1이면:
+        trap_en = 1
+        trap_mepc  = id_ex_pc (EX 단계의 현재 명령 PC)
+        trap_mcause = 0x8000_000B (MEIP)
+        if_pc_sel = 2'b10 → if_jal_target_muxed = mtvec
+        flush_id=1, flush_ex=1
+
+================================================================================
+  ⑤ 디버그 출력 포트
+================================================================================
+
+  디버그 포트는 TOP 내부 신호를 외부로 그대로 노출한다.
+  테스트벤치가 이 포트를 모니터링하여 레지스터 쓰기를 감지한다.
+
+  dbg_pc        = if_pc          ← if_stage의 현재 PC (매 사이클 변화)
+  dbg_reg_we    = wb_rd_wen      ← wb_stage 출력
+  dbg_reg_waddr = wb_rd_addr     ← wb_stage 출력 (5비트 레지스터 번호)
+  dbg_reg_wdata = wb_rd_wdata    ← wb_stage 출력 (32비트 쓰기 데이터)
+
+  테스트벤치 활용:
+    always @(posedge clk):
+      if (dbg_reg_we && dbg_reg_waddr != 0):
+        actual = dbg_reg_wdata
+        if (exp_valid[waddr]):
+          if (actual == expected[waddr]) → PASS
+          else                           → FAIL
+
+  ─── ADD x3, x1, x2 완료 시점의 디버그 출력 ────────────────────────────────
+
+    WB 단계 완료 클럭 (T5):
+      dbg_reg_we    = 1
+      dbg_reg_waddr = 5'b00011   (x3 = 3)
+      dbg_reg_wdata = 32'd8
+
+================================================================================
+  TOP 포트 전체 흐름 요약 다이어그램
+================================================================================
+
+             ┌─────────────────────────────────────────────────────┐
+   clk ─────→│                                                     │
+   rst_n ───→│              rv32i_core (TOP)                       │
+             │                                                     │
+  ─── 명령어 메모리 ─────────────────────────────────────────────  │
+  imem_rdata→│─→ if_stage ─→ IF/ID reg ─→ id_stage ─→ pipeline   │
+  imem_ready→│─→ if_stage (instr MUX)                             │
+             │  └─→ hazard_unit (stall 판정)                       │
+             │                    if_stage ─→ imem_req  ─────────→│
+             │                    if_stage ─→ imem_addr ─────────→│
+             │                          (= 현재 PC)                │
+  ─── 데이터 메모리 ─────────────────────────────────────────────  │
+  dmem_rdata→│─→ mem_stage → load_data → MEM/WB → wb_stage        │
+  dmem_ready→│─→ mem_stage (ready)                                │
+             │  └─→ hazard_unit (stall 판정)                       │
+             │         mem_stage ─→ dmem_req   ──────────────────→│
+             │         mem_stage ─→ dmem_we    ──────────────────→│
+             │         mem_stage ─→ dmem_be    ──────────────────→│
+             │         mem_stage ─→ dmem_addr  ──────────────────→│
+             │         mem_stage ─→ dmem_wdata ──────────────────→│
+  ─── 인터럽트 ──────────────────────────────────────────────────  │
+  ext_irq   →│─→ 2-FF CDC ─→ ext_irq_sync                        │
+             │  ├─→ csr_regfile (mip[11])                          │
+             │  └─→ trap_en 판정 → PC = mtvec                     │
+  timer_irq →│─→ 2-FF CDC ─→ timer_irq_sync (동일 구조)           │
+  ─── 디버그 출력 ───────────────────────────────────────────────  │
+             │         if_stage.pc ──────────────→ dbg_pc ────────→│
+             │         wb_stage.rd_wen ──────────→ dbg_reg_we ────→│
+             │         wb_stage.rd_addr ─────────→ dbg_reg_waddr ─→│
+             │         wb_stage.rd_wdata ────────→ dbg_reg_wdata ─→│
+             └─────────────────────────────────────────────────────┘
+
+================================================================================
+  포트별 "최초 소비 모듈" 정리
+================================================================================
+
+  입력 포트      | 최초 소비 모듈   | 목적
+  ---------------|------------------|------------------------------------
+  clk            | 모든 FF          | 동기화 기준
+  rst_n          | 모든 FF          | 초기화
+  imem_rdata     | if_stage         | 명령어 데이터
+  imem_ready     | if_stage         | NOP 삽입 여부 결정
+               \ | hazard_unit      | 파이프라인 stall 제어
+  dmem_rdata     | mem_stage        | 로드 데이터 추출
+  dmem_ready     | mem_stage        | ready 패스스루
+               \ | hazard_unit      | 파이프라인 stall 제어
+  ext_irq        | 2-FF CDC → csr   | mip[11] 갱신
+               \ | 2-FF CDC → TOP   | trap_en 판정
+  timer_irq      | 2-FF CDC → csr   | mip[7] 갱신
+               \ | 2-FF CDC → TOP   | trap_en 판정
+
+================================================================================

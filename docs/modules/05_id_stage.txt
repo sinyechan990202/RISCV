@@ -1,0 +1,94 @@
+================================================================================
+  모듈명: id_stage
+  경로:   rtl/id/id_stage.sv
+  계층:   ID (Instruction Decode) 스테이지
+================================================================================
+
+[ 역할 ]
+────────────────────────────────────────────────────────────────────────────────
+명령어 해독(Instruction Decode) 단계를 담당한다.
+IF/ID 레지스터에서 받은 명령어를 해독하여 EX 단계에 필요한 모든 제어 신호와
+데이터 경로 값을 생성한다. reg_file, imm_gen, csr_regfile을 내부에 인스턴스화한다.
+
+주요 책임:
+  - 명령어 필드 분리: opcode[6:0], rd[4:0], rs1[4:0], rs2[4:0], funct3[2:0], funct7[6:0]
+  - 레지스터 파일 읽기 (rs1_data, rs2_data)
+  - 즉치값 생성 (imm_gen 호출)
+  - 제어 신호 생성: alu_op, alu_src_a/b, mem_ren/wen, wb_sel, reg_wen,
+                    branch, jal, jalr
+  - CSR 명령어 처리: csr_op, csr_addr, csr_rdata
+  - CSR 명령어 시 rs1_data를 csr_rdata로 대체 (TOP에서 처리)
+
+[ 주요 포트 ]
+────────────────────────────────────────────────────────────────────────────────
+  instr_i        — IF/ID 레지스터의 명령어
+  pc_i           — 현재 명령어의 PC
+  wb_rd/wdata/wen — WB 단계 피드백 (reg_file 쓰기용)
+  trap_en        — 트랩 발생 여부 (CSR에 전달)
+  mepc_in/mcause_in — 트랩 시 저장할 PC/원인 (CSR에 전달)
+  ext_irq/timer_irq — 동기화된 인터럽트 신호 (CSR에 전달)
+
+  rs1_data_o/rs2_data_o — 레지스터 읽기 데이터
+  rs1_addr_o/rs2_addr_o — rs1, rs2 주소
+  imm_o          — 부호 확장된 즉치값
+  rd_o           — 목적 레지스터 주소
+  alu_op_o       — ALU 연산 코드 (5비트)
+  alu_src_a_o    — 0=rs1, 1=PC (AUIPC용)
+  alu_src_b_o    — 0=rs2, 1=imm
+  mem_ren_o      — 메모리 읽기 활성화 (LW/LH/LB 등)
+  mem_wen_o      — 메모리 쓰기 활성화 (SW/SH/SB)
+  mem_size_o     — 메모리 접근 크기 (funct3와 동일 필드)
+  wb_sel_o       — WB 선택: 00=ALU, 01=Load, 10=PC+4, 11=CSR
+  reg_wen_o      — 레지스터 파일 쓰기 활성화
+  branch_o       — 브랜치 명령어 여부
+  jal_o / jalr_o — JAL/JALR 명령어 여부
+  csr_op_o       — CSR 연산 코드 (3비트)
+  csr_rdata_o    — CSR 읽기 데이터
+  mepc_out/mtvec_out — CSR에서 읽은 mepc/mtvec
+  mie_global     — MIE 비트 (전역 인터럽트 인에이블)
+
+[ ALU op 인코딩 (5비트) ]
+────────────────────────────────────────────────────────────────────────────────
+  00000=ADD, 00001=SUB, 00010=AND, 00011=OR,  00100=XOR
+  00101=SLL, 00110=SRL, 00111=SRA
+  01000=SLT, 01001=SLTU
+  01010=LUI, 01011=AUIPC, 01100=PASS_A(CSR)
+
+[ opcode별 제어 신호 ]
+────────────────────────────────────────────────────────────────────────────────
+  opcode   | alu_op      | src_a | src_b | mem_ren | mem_wen | wb_sel | reg_wen
+  ---------|-------------|-------|-------|---------|---------|--------|--------
+  R-type   | from funct  |  rs1  |  rs2  |    0    |    0    |  ALU   |   1
+  I-type   | from funct  |  rs1  |  imm  |    0    |    0    |  ALU   |   1
+  LOAD     | ADD (addr)  |  rs1  |  imm  |    1    |    0    | Load   |   1
+  STORE    | ADD (addr)  |  rs1  |  imm  |    0    |    1    |   -    |   0
+  BRANCH   | -           |  rs1  |  rs2  |    0    |    0    |   -    |   0
+  JAL      | -           |   -   |   -   |    0    |    0    | PC+4   |   1
+  JALR     | ADD         |  rs1  |  imm  |    0    |    0    | PC+4   |   1
+  LUI      | LUI         |   -   |  imm  |    0    |    0    |  ALU   |   1
+  AUIPC    | AUIPC       |  PC   |  imm  |    0    |    0    |  ALU   |   1
+  SYSTEM   | PASS_A(CSR) |  rs1  |   -   |    0    |    0    |  CSR   |  rd≠0
+
+[ 동작 예시 ]
+────────────────────────────────────────────────────────────────────────────────
+  예시 1) ADD x3, x1, x2  (R-type, instr=0x0020_81B3)
+    opcode=0110011(R), funct3=000, funct7=0000000
+    → alu_op=ADD(00000), src_a=rs1, src_b=rs2, reg_wen=1, wb_sel=ALU
+    → rs1_data=reg[1]=5, rs2_data=reg[2]=3
+
+  예시 2) LW x11, 0(x0)  (LOAD, instr=0x0000_2583)
+    opcode=0000011(LOAD), funct3=010(W), rs1=x0, imm=0
+    → alu_op=ADD, src_b=imm(0), mem_ren=1, wb_sel=Load, reg_wen=1
+    → EX에서 주소 = reg[0]+0 = 0x0000
+
+  예시 3) BNE x1, x2, +8  (BRANCH)
+    opcode=1100011(BRANCH), funct3=001(BNE)
+    → branch=1, reg_wen=0
+    → imm_gen: B-type imm = +8
+
+  예시 4) CSRRW x5, mstatus, x1  (SYSTEM)
+    opcode=1110011, funct3=001 → csr_op=001(CSRRW)
+    → wb_sel=CSR(11), reg_wen=(rd≠0)=1
+    → csr_rdata_o = CSR[0x300] 읽기
+
+================================================================================

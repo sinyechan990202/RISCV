@@ -1,0 +1,79 @@
+================================================================================
+  모듈명: rv32i_core
+  경로:   rtl/top/rv32i_core.sv
+  계층:   TOP (최상위)
+================================================================================
+
+[ 역할 ]
+────────────────────────────────────────────────────────────────────────────────
+전체 RV32I 5-stage 파이프라인 프로세서의 최상위 모듈.
+IF → ID → EX → MEM → WB 5단계 파이프라인 스테이지와 파이프 레지스터,
+hazard_unit, forwarding_unit을 모두 인스턴스로 포함하고 연결한다.
+
+주요 책임:
+  - 외부 메모리 인터페이스(imem, dmem) 포트를 외부로 노출
+  - 비동기 인터럽트(ext_irq, timer_irq)를 2-FF 동기화(CDC) 처리
+  - Trap 발생 시 PC를 mtvec으로 리다이렉트 (trap_en 신호 생성)
+  - ECALL/EBREAK 디코딩 및 IRQ 처리
+  - 디버그 출력(dbg_pc, dbg_reg_we/waddr/wdata) 제공
+  - 각 스테이지 간 신호 배선 (wire stitching)
+
+[ 주요 포트 ]
+────────────────────────────────────────────────────────────────────────────────
+  clk, rst_n              — 클럭, 액티브 로우 리셋
+
+  imem_req/addr           — 명령어 메모리 요청 / 주소
+  imem_rdata/ready        — 명령어 메모리 응답 데이터 / 준비
+
+  dmem_req/we/be/addr     — 데이터 메모리 요청 / 쓰기 / 바이트 인에이블 / 주소
+  dmem_wdata/rdata/ready  — 데이터 메모리 쓰기 데이터 / 읽기 데이터 / 준비
+
+  ext_irq, timer_irq      — 외부 인터럽트, 타이머 인터럽트 (비동기)
+
+  dbg_pc                  — 현재 IF 단계 PC (디버그)
+  dbg_reg_we/waddr/wdata  — WB 단계 레지스터 쓰기 정보 (디버그, 테스트벤치 활용)
+
+[ 핵심 내부 로직 ]
+────────────────────────────────────────────────────────────────────────────────
+  1) CDC (Clock Domain Crossing) 동기화:
+       {ext_irq_sync, ext_irq_s} <= {ext_irq_s, ext_irq}
+     → 비동기 인터럽트를 2 플립플롭으로 동기화
+
+  2) Trap PC 리다이렉트:
+       if_pc_sel           = trap_en ? 2'b10 : hz_pc_sel
+       if_jal_target_muxed = trap_en ? mtvec : ex_jal_target
+     → 트랩 발생 시 jal_target 슬롯을 mtvec으로 오버라이드
+
+  3) Trap 감지:
+       ex_is_ecall  = id_ex_valid & (id_ex_csr_op==3'b000) & (id_ex_csr_addr==12'h000)
+       ex_is_ebreak = id_ex_valid & (id_ex_csr_op==3'b000) & (id_ex_csr_addr==12'h001)
+       irq_pending  = mie_global & (ext_irq_sync | timer_irq_sync)
+       trap_en      = irq_pending | ex_is_ecall | ex_is_ebreak
+
+  4) CSR 특수 처리:
+       id_rs1_data_final = (id_wb_sel == 2'b11) ? id_csr_rdata : id_rs1_data
+       id_alu_op_final   = (id_wb_sel == 2'b11) ? PASS_A       : id_alu_op
+     → CSR 명령은 읽은 값을 ALU PASS_A를 통해 WB로 전달
+
+  5) instret_inc:
+       WB에서 reg_wen이 1일 때 CSR의 instret 카운터를 증가
+
+[ 동작 예시 ]
+────────────────────────────────────────────────────────────────────────────────
+  예시 1) 일반 명령 실행 (ADDI x1, x0, 5)
+    - imem_rdata = 0x00500093
+    - PC=0x00으로 imem에 fetch 요청
+    - ID에서 ADDI 디코딩: alu_op=ADD, alu_src_b=1(imm), imm=5, rd=x1
+    - EX에서 ALU 계산: 0 + 5 = 5
+    - WB에서 x1 ← 5 기록
+    - dbg_reg_we=1, dbg_reg_waddr=1, dbg_reg_wdata=5 출력
+
+  예시 2) 외부 인터럽트 처리
+    - ext_irq 비동기로 High
+    - 2클럭 후 ext_irq_sync = 1
+    - mie_global=1이면 irq_pending=1 → trap_en=1
+    - if_pc_sel = 2'b10, if_jal_target_muxed = mtvec
+    - PC가 mtvec으로 점프, IF/ID/ID/EX flush
+    - mepc ← 트랩 당시 EX 단계의 PC, mcause ← 0x8000000B
+
+================================================================================

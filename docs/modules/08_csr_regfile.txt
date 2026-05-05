@@ -1,0 +1,95 @@
+================================================================================
+  모듈명: csr_regfile
+  경로:   rtl/id/csr_regfile.sv
+  계층:   ID 스테이지 내부
+================================================================================
+
+[ 역할 ]
+────────────────────────────────────────────────────────────────────────────────
+RISC-V M-mode CSR(Control and Status Register) 레지스터 파일을 구현한다.
+CSRRW/CSRRS/CSRRC 및 ZIMM 변형(CSRRWI/CSRRSI/CSRRCI) 명령어를 처리하며,
+트랩 진입/복귀 시 mepc/mcause/mstatus 갱신을 담당한다.
+cycle, instret 하드웨어 카운터도 내장한다.
+
+[ 구현된 CSR 레지스터 ]
+────────────────────────────────────────────────────────────────────────────────
+  주소    | 이름      | 용도
+  --------|-----------|------------------------------------------------
+  0x300   | mstatus   | 머신 상태 (MIE[3], MPIE[7])
+  0x301   | misa      | ISA 정보 (Read-Only: RV32I)
+  0x304   | mie       | 인터럽트 인에이블 비트
+  0x305   | mtvec     | 트랩 벡터 주소
+  0x340   | mscratch  | 스크래치 레지스터
+  0x341   | mepc      | 트랩 발생 시의 PC
+  0x342   | mcause    | 트랩 원인 코드
+  0x344   | mip       | 인터럽트 대기 상태 (mip[7]=MTIP, mip[11]=MEIP)
+  0xC00   | cycle     | 사이클 카운터 하위 32비트
+  0xC80   | cycleh    | 사이클 카운터 상위 32비트
+  0xC02   | instret   | 실행 명령 카운터 하위 32비트
+  0xC82   | instreth  | 실행 명령 카운터 상위 32비트
+
+[ CSR 연산 코드 (csr_op[2:0]) ]
+────────────────────────────────────────────────────────────────────────────────
+  001 / 101 = CSRRW / CSRRWI : wdata = rs1_data             (write rs1)
+  010 / 110 = CSRRS / CSRRSI : wdata = csr_rdata | rs1_data (set bits)
+  011 / 111 = CSRRC / CSRRCI : wdata = csr_rdata & ~rs1_data(clear bits)
+  000       = no CSR op (ECALL/EBREAK 또는 비CSR 명령어)
+
+  ZIMM 변형(csr_op[2]=1): caller가 {27'b0, rs1_addr}를 rs1_data로 전달
+
+[ 주요 포트 ]
+────────────────────────────────────────────────────────────────────────────────
+  csr_op[2:0]    — CSR 연산 종류
+  csr_addr[11:0] — CSR 레지스터 주소
+  rs1_data       — 쓰기 소스 데이터 (ZIMM 시 zero-extended uimm)
+  csr_rdata      — 읽기 데이터 (조합 출력)
+  trap_en        — 트랩 발생 신호 (TOP에서)
+  mepc_in        — 트랩 시 저장할 PC
+  mcause_in      — 트랩 원인 코드
+  mepc_out       — MRET 등에서 사용할 mepc 출력
+  mtvec_out      — 트랩 벡터 주소 출력
+  mie_global     — mstatus[3] (MIE 비트) 출력
+  instret_inc    — 명령 카운터 증가 펄스 (WB에서)
+  ext_irq        — 외부 인터럽트 (동기화된)
+  timer_irq      — 타이머 인터럽트 (동기화된)
+
+[ 핵심 내부 로직 ]
+────────────────────────────────────────────────────────────────────────────────
+  1) 읽기 (조합): csr_addr로 해당 레지스터값 선택 → csr_rdata 출력
+
+  2) 쓰기 (동기):
+     - trap_en 우선: mepc←mepc_in, mcause←mcause_in,
+       mstatus[7]←mstatus[3](MPIE=MIE), mstatus[3]←0(MIE 비활성)
+     - CSR 명령어: wdata 계산 후 csr_addr에 해당하는 레지스터 갱신
+
+  3) mip 갱신 (매 클럭):
+     mip[7]  ← timer_irq   (MTIP)
+     mip[11] ← ext_irq     (MEIP)
+
+  4) cycle_cnt: 매 클럭 +1
+     instret_cnt: instret_inc=1 클럭마다 +1
+
+[ 동작 예시 ]
+────────────────────────────────────────────────────────────────────────────────
+  예시 1) CSRRW x5, mstatus, x1  (mstatus에 x1 값 쓰고 이전값 x5에 저장)
+    csr_op=001, csr_addr=0x300, rs1_data=reg[x1]
+    csr_rdata = mstatus (현재값, x5로 WB됨)
+    wdata = rs1_data → mstatus ← wdata
+
+  예시 2) CSRRS x0, mie, x3  (mie의 특정 비트 Set)
+    csr_op=010, csr_addr=0x304, rs1_data=reg[x3]
+    wdata = mie | rs1_data → mie ← wdata
+    rd=x0이므로 reg_wen=0, csr_rdata는 버려짐
+
+  예시 3) 트랩 발생 (ECALL)
+    trap_en=1, mepc_in=0x40(EX의 PC), mcause_in=0x0000000B
+    → mepc ← 0x40
+    → mcause ← 0x0000000B
+    → mstatus[7] ← mstatus[3](기존 MIE), mstatus[3] ← 0
+
+  예시 4) 인터럽트 인에이블 확인
+    mie_global = mstatus[3]
+    ext_irq=1 → mip[11]=1
+    irq_pending = mie_global & mip[11] → 트랩 트리거 (TOP에서 판정)
+
+================================================================================

@@ -1,0 +1,89 @@
+================================================================================
+  모듈명: forwarding_unit
+  경로:   rtl/ex/forwarding_unit.sv
+  계층:   EX 스테이지 내부
+================================================================================
+
+[ 역할 ]
+────────────────────────────────────────────────────────────────────────────────
+RAW(Read-After-Write) 데이터 해저드를 하드웨어 포워딩으로 해결하는
+순수 조합 논리 모듈.
+
+EX 단계의 명령어가 필요로 하는 rs1/rs2 주소를 현재 MEM 단계(EX→EX)와
+WB 단계(MEM→EX)의 목적 레지스터(rd)와 비교하여 포워딩 선택 신호를 출력한다.
+실제 데이터 선택은 ex_stage의 포워딩 MUX에서 수행한다.
+
+[ 포워딩 우선순위 ]
+────────────────────────────────────────────────────────────────────────────────
+  EX→EX (2'b10) > MEM→EX (2'b01) > 포워딩 없음 (2'b00)
+
+  EX→EX가 더 최신 값이므로 우선순위가 높다.
+  두 스테이지가 동시에 같은 레지스터에 쓰려 할 때(연속 RAW)
+  EX→EX가 이긴다.
+
+[ fwd_sel 인코딩 ]
+────────────────────────────────────────────────────────────────────────────────
+  2'b00 = 포워딩 없음 → reg_file 읽기값(ID/EX 레지스터) 사용
+  2'b01 = MEM→EX    → WB 단계의 wb_rd_wdata 사용
+  2'b10 = EX→EX     → MEM 단계의 alu_result 사용
+
+[ 주요 포트 ]
+────────────────────────────────────────────────────────────────────────────────
+  ex_rs1_i / ex_rs2_i     — 현재 EX 단계의 소스 레지스터 주소
+  mem_rd_i / mem_reg_wen_i — MEM 단계(EX/MEM 레지스터)의 rd 주소 및 쓰기 인에이블
+  wb_rd_i  / wb_reg_wen_i  — WB 단계(MEM/WB 레지스터)의 rd 주소 및 쓰기 인에이블
+  fwd_a_sel_o             — rs1 포워딩 선택
+  fwd_b_sel_o             — rs2 포워딩 선택
+
+[ 핵심 내부 로직 ]
+────────────────────────────────────────────────────────────────────────────────
+  RS1 포워딩:
+    if (mem_reg_wen && mem_rd!=0 && mem_rd==ex_rs1)   → fwd_a=2'b10 (EX→EX)
+    else if (wb_reg_wen && wb_rd!=0 && wb_rd==ex_rs1) → fwd_a=2'b01 (MEM→EX)
+    else                                               → fwd_a=2'b00
+
+  RS2 포워딩: (동일 로직)
+    if (mem_reg_wen && mem_rd!=0 && mem_rd==ex_rs2)   → fwd_b=2'b10
+    else if (wb_reg_wen && wb_rd!=0 && wb_rd==ex_rs2) → fwd_b=2'b01
+    else                                               → fwd_b=2'b00
+
+  x0 (rd=0) 는 절대 포워딩 소스가 될 수 없다 (항상 0이므로 조건에서 제외).
+
+[ 처리하지 못하는 해저드 ]
+────────────────────────────────────────────────────────────────────────────────
+  Load-Use 해저드:
+    LW가 EX에 있을 때 바로 다음 명령이 해당 rd를 사용하면
+    MEM에서 메모리를 읽어야만 값이 나오므로 EX→EX 포워딩 불가.
+    hazard_unit이 1-사이클 스톨(bubble) 삽입 후, 스톨 다음 사이클에
+    MEM→EX 포워딩으로 해결한다.
+
+[ 동작 예시 ]
+────────────────────────────────────────────────────────────────────────────────
+  예시 1) EX→EX 포워딩 (연속 ADD)
+    T0: ADD x3, x1, x2 → EX
+    T1: ADD x4, x3, x2 → EX  /  이전 ADD x3 → MEM
+    T1: mem_rd=3, mem_reg_wen=1, ex_rs1=3
+    → fwd_a=2'b10 → alu_a = ex_mem_alu_result(=8)
+
+  예시 2) MEM→EX 포워딩 (1-NOP 간격)
+    T0: ADD x22, x1, x2  → EX
+    T1: NOP              → EX  / ADD x22 → MEM
+    T2: SUB x23, x22, x2 → EX  / NOP → MEM / ADD x22 → WB
+    T2: mem_rd=NOP의 rd=0 → EX→EX 불가
+        wb_rd=22, wb_reg_wen=1, ex_rs1=22
+    → fwd_a=2'b01 → alu_a = wb_rd_wdata(=8)
+
+  예시 3) Load-Use 스톨 후 MEM→EX
+    T0: LW x25 → EX  /  ADD x26(rs1=x25) → ID
+    → hazard_unit: load_use_hazard=1 → stall+bubble
+    T1: LW x25 → MEM / bubble → EX / ADD x26 → ID(stall)
+    T2: LW x25 → WB  / ADD x26 → EX
+    T2: wb_rd=25, wb_reg_wen=1, ex_rs1=25
+    → fwd_a=2'b01 → alu_a = wb_rd_wdata(=LW 데이터)
+
+  예시 4) 포워딩 없음 (거리가 멀어서 이미 reg_file에 쓰여진 경우)
+    T0: ADD x1 → WB 완료(reg_file 쓰기 끝)
+    T3: SUB x5, x1, x2 → EX
+    T3: mem_rd, wb_rd 모두 x1 아님 → fwd_a=2'b00 → reg_file 읽기 사용
+
+================================================================================

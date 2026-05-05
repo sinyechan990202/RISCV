@@ -1,0 +1,100 @@
+================================================================================
+  모듈명: hazard_unit
+  경로:   rtl/ctrl/hazard_unit.sv
+  계층:   제어 (Control)
+================================================================================
+
+[ 역할 ]
+────────────────────────────────────────────────────────────────────────────────
+파이프라인의 모든 해저드를 감지하고 stall/flush/pc_sel 제어 신호를 생성하는
+순수 조합 논리 모듈.
+
+처리하는 해저드 종류:
+  1) Load-Use 해저드      — 1-사이클 stall + bubble
+  2) CSR RAW 해저드       — stall (포워딩으로 해결 불가)
+  3) 제어 해저드          — branch taken / JAL / JALR → flush + PC 리다이렉트
+  4) 트랩                 — IF/ID, ID/EX flush + PC → mtvec
+  5) 메모리 백프레셔       — imem_ready=0 또는 dmem_ready=0 (full-pipeline stall)
+
+[ 출력 신호 요약 ]
+────────────────────────────────────────────────────────────────────────────────
+  stall_if  — IF 스테이지 (PC 레지스터) 홀드
+  stall_id  — IF/ID 레지스터 홀드
+  stall_ex  — ID/EX 레지스터 홀드 (메모리 백프레셔만)
+  stall_mem — EX/MEM 레지스터 홀드 (메모리 백프레셔만)
+  stall_wb  — MEM/WB 레지스터 홀드 (메모리 백프레셔만)
+  flush_id  — IF/ID 레지스터 flush (NOP 삽입)
+  flush_ex  — ID/EX 레지스터 flush (버블 삽입)
+  flush_mem — EX/MEM flush (트랩이나 특수 상황만, 현재는 항상 0)
+  flush_wb  — MEM/WB flush (현재는 항상 0)
+  pc_sel    — 00=PC+4, 01=branch, 10=jal, 11=jalr
+
+[ 해저드별 처리 상세 ]
+────────────────────────────────────────────────────────────────────────────────
+  (1) Load-Use 해저드:
+      조건: ex_mem_ren=1 && ex_rd≠0 && (ex_rd==id_rs1 || ex_rd==id_rs2)
+      처리:
+        stall_if=1, stall_id=1   → PC와 IF/ID 레지스터 홀드
+        flush_ex=1               → ID/EX 레지스터에 버블 삽입
+      결과:
+        1사이클 후 LW가 MEM → WB로 이동, forwarding_unit이 MEM→EX 처리
+
+  (2) CSR RAW 해저드:
+      조건: id_csr_uses_rs1=1 && id_rs1≠0
+            && ((ex_reg_wen && ex_rd==id_rs1) || (mem_reg_wen && mem_rd==id_rs1))
+      처리: load-use와 동일 (stall_if/id=1, flush_ex=1)
+      이유: CSR는 ID 단계에서 rs1을 읽으며, reg_file 바이패스만 작동 (포워딩 없음)
+            WB 단계의 쓰기가 완료돼야 reg_file 바이패스로 해결 가능
+
+  (3) 제어 해저드 (Branch/JAL/JALR):
+      조건: branch_taken=1 || ex_jal=1 || ex_jalr=1
+      처리:
+        flush_id=1  → IF/ID 레지스터 flush (잘못 인출된 명령)
+        flush_ex=1  → ID/EX 레지스터 flush (잘못 디코딩된 명령)
+        pc_sel 설정: branch→01, jal→10, jalr→11
+      이유: EX 단계에서 분기 확정까지 2개 명령이 wrong-path로 진행
+
+  (4) 트랩:
+      조건: trap_en=1 (TOP에서)
+      처리:
+        flush_id=1, flush_ex=1
+        flush_mem=0, flush_wb=0 (precise trap: 이미 진행 중인 명령 완료)
+        pc_sel: TOP에서 오버라이드 → mtvec으로
+
+  (5) 메모리 백프레셔:
+      조건: !imem_ready || (!dmem_ready && dmem_active)
+      처리: stall_if=stall_id=stall_ex=stall_mem=stall_wb=1 (전체 파이프라인 동결)
+
+[ 우선순위 규칙 (flush_ex) ]
+────────────────────────────────────────────────────────────────────────────────
+  flush_ex = load_use_hazard | csr_raw_hazard | control_hazard
+  트랩은 load_use보다 우선 (trap_en이 참이면 별도 분기):
+    trap_en → flush_id=1, flush_ex=1 (control_hazard 독립)
+
+[ 동작 예시 ]
+────────────────────────────────────────────────────────────────────────────────
+  예시 1) Load-Use: LW x25(EX) → ADD x26(ID, rs1=x25)
+    ex_mem_ren=1, ex_rd=25, id_rs1=25 → load_use_hazard=1
+    stall_if=1, stall_id=1, flush_ex=1
+    T+1: ADD x26이 ID에 한 사이클 더 머묾, EX에 버블
+    T+2: ADD x26이 EX로 진입, LW가 WB → MEM→EX 포워딩으로 해결
+
+  예시 2) BNE taken
+    branch_taken=1 → control_hazard=1
+    flush_id=1, flush_ex=1, pc_sel=2'b01
+    → PC가 branch_target으로 변경, 2개 명령 폐기
+
+  예시 3) JAL x15
+    ex_jal=1 → control_hazard=1
+    flush_id=1, flush_ex=1, pc_sel=2'b10
+    → PC가 jal_target으로 변경
+
+  예시 4) imem_ready=0 (명령어 메모리 응답 지연)
+    mem_not_ready=1 → stall_if~wb=1 (전체 파이프라인 동결)
+    imem_ready=1이 될 때까지 유지
+
+  예시 5) 트랩 (ECALL)
+    trap_en=1 → flush_id=1, flush_ex=1, pc_sel=2'b10(TOP 오버라이드 → mtvec)
+    MEM, WB에 있던 명령은 정상 완료 후 메모리/레지스터에 반영
+
+================================================================================

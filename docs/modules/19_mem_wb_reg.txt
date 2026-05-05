@@ -1,0 +1,66 @@
+================================================================================
+  모듈명: mem_wb_reg
+  경로:   rtl/pipe/mem_wb_reg.sv
+  계층:   MEM ↔ WB 파이프라인 레지스터
+================================================================================
+
+[ 역할 ]
+────────────────────────────────────────────────────────────────────────────────
+MEM 단계와 WB 단계 사이의 파이프라인 레지스터.
+MEM 단계의 출력(ALU 결과, 로드 데이터, PC+4, rd, wb_sel, reg_wen)을 래치하여
+다음 사이클의 WB 단계에 공급한다.
+
+이 레지스터의 출력도 forwarding_unit에서 읽힌다:
+  → MEM→EX 포워딩 소스 (mem_wb_rd, mem_wb_reg_wen)
+  → wb_rd_wdata_i는 실제로 wb_stage 출력(wb_rd_wdata)이 사용됨
+
+wb_sel에 따라 WB 단계가 alu_result 또는 load_data를 선택한다.
+이 레지스터에서 load_data_i를 별도로 보존함으로써
+메모리 읽기 데이터가 WB까지 안전하게 전달된다.
+
+[ 보유 필드 ]
+────────────────────────────────────────────────────────────────────────────────
+  alu_result   — ALU 연산 결과 (비-load 명령용 WB 데이터)
+  load_data    — 메모리 읽기 데이터 (LOAD 명령용 WB 데이터)
+  pc_plus4     — PC+4 (JAL/JALR 링크 레지스터용)
+  rd[4:0]      — 목적 레지스터 주소
+  wb_sel[1:0]  — WB 데이터 선택
+  reg_wen      — 레지스터 쓰기 인에이블
+
+[ stall / flush 동작 ]
+────────────────────────────────────────────────────────────────────────────────
+  flush (rst_n 또는 flush_wb):
+    모든 필드 ← 0 (reg_wen=0)
+
+  stall (stall_wb — 메모리 백프레셔만 해당):
+    홀드
+
+  트랩: flush_wb=0 → MEM/WB 레지스터 flush하지 않음
+  → WB 단계 명령은 트랩 후에도 정상 완료 (precise trap semantics)
+
+[ Timing D 예시: LW→NOP→ADD load MEM→EX 포워딩 ]
+────────────────────────────────────────────────────────────────────────────────
+  이 레지스터가 load_data를 별도 필드로 보존한다.
+  WB 단계에서 wb_sel=01이면 rd_wdata = load_data.
+  forwarding_unit은 wb_rd_wdata_i로 wb_stage의 최종 rd_wdata_o를 참조하므로
+  load 명령의 WB 단계에서 MEM→EX 포워딩 소스로 load_data가 올바르게 제공된다.
+
+[ 동작 예시 ]
+────────────────────────────────────────────────────────────────────────────────
+  예시 1) LW x11, 0(x0)
+    MEM 단계: load_data=8, alu_result=0x00(주소), rd=11, wb_sel=01, reg_wen=1
+    MEM/WB 레지스터: mem_wb_load_data=8, mem_wb_alu_result=0x00, mem_wb_rd=11
+    WB 단계: wb_sel=01 → rd_wdata=8 → reg_file regs[11] ← 8
+
+  예시 2) ADD x3, x1, x2
+    alu_result=8, load_data=X(메모리 접근 없음), rd=3, wb_sel=00, reg_wen=1
+    WB 단계: wb_sel=00 → rd_wdata=8 → reg_file regs[3] ← 8
+
+  예시 3) JAL x15, +8
+    alu_result=X, pc_plus4=0x48, rd=15, wb_sel=10, reg_wen=1
+    WB 단계: wb_sel=10 → rd_wdata=0x48 → reg_file regs[15] ← 0x48
+
+  예시 4) SW x3, 0(x0) — reg_wen=0
+    WB 단계: reg_wen=0 → 레지스터 쓰기 없음
+
+================================================================================

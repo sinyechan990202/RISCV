@@ -1,0 +1,85 @@
+================================================================================
+  모듈명: ex_stage
+  경로:   rtl/ex/ex_stage.sv
+  계층:   EX (Execute) 스테이지
+================================================================================
+
+[ 역할 ]
+────────────────────────────────────────────────────────────────────────────────
+명령어 실행(Execute) 단계를 담당한다.
+forwarding_unit, alu, branch_unit 3개 서브모듈을 인스턴스화하고,
+포워딩 후 ALU 입력 MUX 선택 및 ALU 연산, 브랜치/점프 타깃 계산을 수행한다.
+
+주요 책임:
+  - forwarding_unit으로부터 fwd_a_sel, fwd_b_sel 수신
+  - EX→EX (MEM 단계 ALU 결과) 또는 MEM→EX (WB 단계 쓰기 데이터) 포워딩 MUX
+  - ALU 소스 MUX: alu_src_a(rs1/PC), alu_src_b(rs2/imm)
+  - ALU 연산 실행
+  - branch_unit으로 포워딩된 rs1/rs2를 전달하여 브랜치 조건 판정 및 타깃 계산
+  - 포워딩된 rs2를 MEM 단계(store 데이터)로 전달
+
+[ 주요 포트 ]
+────────────────────────────────────────────────────────────────────────────────
+  rs1_data_i / rs2_data_i — ID/EX 레지스터에서 온 레지스터 값
+  imm_i           — 즉치값
+  pc_i            — 현재 EX 단계의 PC
+  rs1_i / rs2_i   — 포워딩 판정용 소스 레지스터 주소
+  alu_op_i        — ALU 연산 코드
+  alu_src_a_i     — 0=rs1, 1=PC
+  alu_src_b_i     — 0=rs2, 1=imm
+  funct3_i        — 브랜치 조건 판단용
+  branch_i/jal_i/jalr_i — 명령어 종류 플래그
+
+  ex_mem_rd_i / ex_mem_reg_wen_i — EX→EX 포워딩 소스 (MEM 단계 rd)
+  ex_mem_data_i                  — EX→EX 포워딩 데이터 (MEM 단계 ALU 결과)
+  mem_wb_rd_i / mem_wb_reg_wen_i — MEM→EX 포워딩 소스 (WB 단계 rd)
+  wb_rd_wdata_i                  — MEM→EX 포워딩 데이터 (WB 단계 쓰기 데이터)
+
+  alu_result_o    — ALU 연산 결과
+  rs2_fwd_o       — 포워딩된 rs2 값 (MEM 단계 store 데이터로 전달)
+  branch_taken_o  — 브랜치 성립 여부
+  branch_target_o — 브랜치 타깃 주소 (PC + B-imm)
+  jal_target_o    — JAL 타깃 주소 (PC + J-imm)
+  jalr_target_o   — JALR 타깃 주소 ((rs1+I-imm) & ~1)
+
+[ 포워딩 MUX 선택 ]
+────────────────────────────────────────────────────────────────────────────────
+  fwd_sel = 2'b10 → rs_fwd = ex_mem_data_i    (EX→EX, 우선순위 높음)
+  fwd_sel = 2'b01 → rs_fwd = wb_rd_wdata_i    (MEM→EX)
+  fwd_sel = 2'b00 → rs_fwd = rs_data_i        (포워딩 없음)
+
+[ ALU 입력 MUX ]
+────────────────────────────────────────────────────────────────────────────────
+  alu_a = alu_src_a ? pc_i     : rs1_fwd  ← AUIPC 시 PC 사용
+  alu_b = alu_src_b ? imm_i   : rs2_fwd  ← imm 명령어 시 즉치값 사용
+
+[ 동작 예시 ]
+────────────────────────────────────────────────────────────────────────────────
+  예시 1) ADD x3, x1, x2 (포워딩 없음)
+    fwd_a_sel=2'b00 → rs1_fwd=rs1_data_i=5
+    fwd_b_sel=2'b00 → rs2_fwd=rs2_data_i=3
+    alu_src_a=0, alu_src_b=0
+    → alu_a=5, alu_b=3, alu_op=ADD → alu_result_o=8
+
+  예시 2) EX→EX 포워딩 (직전 명령 ADD x22의 결과를 x23 SUB가 사용)
+    직전 ADD x22 결과=8이 ex_mem_data_i로 전달
+    forwarding_unit이 fwd_a_sel=2'b10 출력
+    → rs1_fwd=8 (MEM 단계 ALU 결과)
+    alu_op=SUB, alu_b=rs2_fwd=3 → alu_result_o=5
+
+  예시 3) AUIPC x18, 0 (PC를 alu_a로 사용)
+    alu_src_a=1 → alu_a=pc_i=0x54
+    alu_src_b=1 → alu_b=imm=0x00000000
+    alu_op=AUIPC(ADD) → alu_result_o=0x54
+
+  예시 4) BNE x1, x2 (브랜치 판정)
+    rs1_fwd=5, rs2_fwd=3, funct3=001(BNE)
+    branch_unit: cond=(5≠3)=1, branch_i=1
+    → branch_taken_o=1, branch_target_o=PC+imm
+
+  예시 5) SW x24, 8(x0) (EX→EX 포워딩으로 x24 store 데이터)
+    직전 ADD x24 결과가 ex_mem_data_i
+    fwd_b_sel=2'b10 → rs2_fwd=8
+    rs2_fwd_o=8 → MEM 단계에서 dmem_wdata=8
+
+================================================================================

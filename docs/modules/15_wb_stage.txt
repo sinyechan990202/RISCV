@@ -1,0 +1,73 @@
+================================================================================
+  모듈명: wb_stage
+  경로:   rtl/wb/wb_stage.sv
+  계층:   WB (Write-Back) 스테이지
+================================================================================
+
+[ 역할 ]
+────────────────────────────────────────────────────────────────────────────────
+Write-Back 단계를 담당하는 순수 조합 논리 모듈.
+MEM/WB 레지스터에서 받은 세 가지 후보 데이터 중 wb_sel에 따라
+레지스터 파일에 쓸 최종 값을 선택하고 reg_file에 전달한다.
+
+rd_wen_o=1이면 reg_file이 클럭 엣지에 rd_addr_o 레지스터에 rd_wdata_o를 기록.
+
+[ wb_sel 인코딩 ]
+────────────────────────────────────────────────────────────────────────────────
+  2'b00 = ALU 결과    (R-type, I-type, LUI, AUIPC 등)
+  2'b01 = 로드 데이터  (LW, LH, LB, LHU, LBU)
+  2'b10 = PC+4        (JAL, JALR 링크 레지스터)
+  2'b11 = CSR 읽기값  (CSRRW 등 — TOP에서 PASS_A로 ALU를 통해 전달됨,
+                       실제로는 2'b00과 동일 경로)
+
+[ 주요 포트 ]
+────────────────────────────────────────────────────────────────────────────────
+  alu_result_i  — ALU 연산 결과 또는 CSR 읽기값 (MEM/WB에서)
+  load_data_i   — 메모리에서 읽어온 데이터 (MEM/WB에서)
+  pc_plus4_i    — 현재 명령어의 PC+4 (JAL/JALR 링크용)
+  rd_i[4:0]     — 목적 레지스터 주소
+  wb_sel_i[1:0] — WB 데이터 선택
+  reg_wen_i     — 레지스터 쓰기 인에이블
+
+  rd_addr_o     — reg_file 쓰기 주소
+  rd_wdata_o    — reg_file 쓰기 데이터
+  rd_wen_o      — reg_file 쓰기 인에이블
+
+[ 핵심 내부 로직 ]
+────────────────────────────────────────────────────────────────────────────────
+  case (wb_sel_i):
+    2'b01 → rd_wdata_o = load_data_i   (LOAD)
+    2'b10 → rd_wdata_o = pc_plus4_i    (JAL/JALR)
+    default → rd_wdata_o = alu_result_i (ALU, LUI, AUIPC, CSR)
+
+  rd_addr_o = rd_i
+  rd_wen_o  = reg_wen_i
+
+  이 출력이 reg_file 및 forwarding_unit의 WB→ID 바이패스 경로로 피드백된다.
+  또한 TOP에서 dbg_reg_we/waddr/wdata로 노출되어 테스트벤치에서 활용된다.
+
+[ 동작 예시 ]
+────────────────────────────────────────────────────────────────────────────────
+  예시 1) ADD x3, x1, x2 — wb_sel=2'b00
+    alu_result_i=8, load_data_i=X, pc_plus4_i=X
+    → rd_wdata_o=8, rd_addr_o=3, rd_wen_o=1
+    → reg_file: regs[3] ← 8
+
+  예시 2) LW x11, 0(x0) — wb_sel=2'b01
+    alu_result_i=0x00(주소), load_data_i=8 (메모리에서 읽음)
+    → rd_wdata_o=8, rd_addr_o=11, rd_wen_o=1
+    → reg_file: regs[11] ← 8
+
+  예시 3) JAL x15, +8 — wb_sel=2'b10
+    pc_plus4_i=0x48 (JAL 명령의 PC=0x44이면 PC+4=0x48)
+    → rd_wdata_o=0x48, rd_addr_o=15, rd_wen_o=1
+    → reg_file: regs[15] ← 0x48 (리턴 주소)
+
+  예시 4) SW x3, 0(x0) — reg_wen=0
+    rd_wen_o=0 → reg_file 쓰기 없음
+
+  예시 5) CSRRW x5, mstatus, x1 — wb_sel=2'b00 (ALU PASS_A 경로)
+    CSR 읽기값이 id_stage → alu_src_a → ALU PASS_A → alu_result_i로 전달됨
+    → rd_wdata_o=alu_result_i=CSR 읽기값, rd_addr_o=5, rd_wen_o=1
+
+================================================================================

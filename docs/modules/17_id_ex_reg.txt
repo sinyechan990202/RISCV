@@ -1,0 +1,70 @@
+================================================================================
+  모듈명: id_ex_reg
+  경로:   rtl/pipe/id_ex_reg.sv
+  계층:   ID ↔ EX 파이프라인 레지스터
+================================================================================
+
+[ 역할 ]
+────────────────────────────────────────────────────────────────────────────────
+ID 단계와 EX 단계 사이의 파이프라인 레지스터.
+ID 단계에서 디코딩된 모든 제어 신호와 데이터 경로 값을 래치하여
+다음 사이클의 EX 단계에 공급한다.
+
+파이프라인 레지스터 중 가장 많은 필드를 보유한다:
+valid, pc, pc_plus4, rs1_data, rs2_data, imm, rs1(주소), rs2(주소), rd,
+alu_op, alu_src_a, alu_src_b, mem_ren, mem_wen, mem_size, wb_sel,
+reg_wen, branch, jal, jalr, csr_op, csr_addr, funct3
+
+flush와 rst_n 시 모든 필드를 0/NOP으로 초기화하여 버블(NOP)을 삽입한다.
+특히 reg_wen=0, mem_ren=0, mem_wen=0을 보장함으로써
+버블이 레지스터 파일이나 메모리를 오염시키지 않도록 한다.
+
+[ stall / flush 동작 ]
+────────────────────────────────────────────────────────────────────────────────
+  flush (rst_n 또는 flush 신호):
+    모든 필드 ← 0  (id_ex_reg_wen=0, id_ex_mem_ren=0, id_ex_mem_wen=0 포함)
+    → EX 단계에 버블(NOP) 삽입
+
+  stall=1, flush=0:
+    모든 필드 홀드 (else if (!stall) 분기 진입 안 함)
+
+  flush > stall 우선순위
+
+[ 주요 포트 (대표적인 것만) ]
+────────────────────────────────────────────────────────────────────────────────
+  입력: valid_i, pc_i, pc_plus4_i, rs1_data_i, rs2_data_i, imm_i,
+        rs1_i, rs2_i, rd_i, alu_op_i, alu_src_a_i, alu_src_b_i,
+        mem_ren_i, mem_wen_i, mem_size_i, wb_sel_i, reg_wen_i,
+        branch_i, jal_i, jalr_i, csr_op_i, csr_addr_i, funct3_i
+
+  출력: id_ex_valid, id_ex_pc, id_ex_pc_plus4, id_ex_rs1_data, id_ex_rs2_data,
+        id_ex_imm, id_ex_rs1, id_ex_rs2, id_ex_rd, id_ex_alu_op,
+        id_ex_alu_src_a, id_ex_alu_src_b, id_ex_mem_ren, id_ex_mem_wen,
+        id_ex_mem_size, id_ex_wb_sel, id_ex_reg_wen, id_ex_branch,
+        id_ex_jal, id_ex_jalr, id_ex_csr_op, id_ex_csr_addr, id_ex_funct3
+
+[ hazard_unit과의 관계 ]
+────────────────────────────────────────────────────────────────────────────────
+  stall_ex  — 메모리 백프레셔 시에만 stall (load-use는 stall 안 함)
+  flush_ex  — load-use hazard / CSR RAW / control hazard / trap 시 flush
+
+  load-use 발생 시:
+    stall_if=1, stall_id=1 → IF/ID 레지스터 홀드
+    flush_ex=1             → ID/EX 레지스터 flush(버블)
+    → ID 단계 명령이 한 사이클 더 머물고, EX 단계에는 버블 삽입
+
+[ 동작 예시 ]
+────────────────────────────────────────────────────────────────────────────────
+  예시 1) ADD x3, x1, x2 전달
+    T0(ID): rs1_data=5, rs2_data=3, rd=3, alu_op=ADD, reg_wen=1, wb_sel=00
+    T1(EX): id_ex_rs1_data=5, id_ex_rs2_data=3, id_ex_rd=3, id_ex_alu_op=ADD
+
+  예시 2) Load-use bubble 삽입 (flush_ex=1)
+    T1: flush=1 → id_ex_reg_wen=0, id_ex_mem_ren=0, id_ex_rd=0
+    → EX 단계는 이 버블을 ALU 연산 후 아무 레지스터도 쓰지 않음
+
+  예시 3) 트랩 (flush_ex=1)
+    trap_en=1 → flush_id=1, flush_ex=1
+    → IF/ID, ID/EX 동시 flush → 트랩 진입 전 2 명령 폐기
+
+================================================================================
