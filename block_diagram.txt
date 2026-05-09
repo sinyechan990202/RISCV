@@ -35,15 +35,15 @@
 
   외부 인터페이스
   ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐
-  │    IMEM (외부)      │  │    DMEM (외부)      │  │   인터럽트 입력    │
+  │    IMEM (외부)      │  │    DMEM (외부)      │  │   인터럽트 입력        │
   │  imem_rdata[31:0]  │  │  dmem_rdata[31:0]  │  │  ext_irq           │
   │  imem_ready        │  │  dmem_ready        │  │  timer_irq         │
   └─────────┬──────────┘  └─────────┬──────────┘  └─────────┬──────────┘
-            │  (읽기 전용)           │  (읽기/쓰기)           │
+            │  (읽기 전용)            │  (읽기/쓰기)             │
             │                       │                ┌───────▼────────────┐
-            │                       │                │  2FF CDC 동기화기   │
-            │                       │                │  ext_irq_sync       │
-            │                       │                │  timer_irq_sync     │
+            │                       │                │  2FF CDC 동기화기    │
+            │                       │                │  ext_irq_sync      │
+            │                       │                │  timer_irq_sync    │
             │                       │                └────────────────────┘
             │                       │
   ══════════════════════════════════════════════════════════════════════════════
@@ -279,9 +279,9 @@
   ┌──────┐  ╔══════╗  ┌──────┐  ╔══════╗  ┌──────┐  ╔══════╗  ┌──────┐
   │      ├─►║      ║─►│      ├─►║      ║─►│      ├─►║      ║─►│      │
   └──────┘  ╚══════╝  └──┬───┘  ╚══╤═══╝  └──────┘  ╚══╤═══╝  └──┬───┘
-                          ▲         │                     │          │
-                          │  EX→EX  │ ex_mem_alu_result   │          │
-                          │ (우선)  └─────────────────────┘          │
+                          ▲         │                     │           │
+                          │  EX→EX  │ ex_mem_alu_result   │           │
+                          │ (우선)  └─────────────────────┘            │
                           │           ex_mem_rd                       │
                           │           ex_mem_reg_wen                  │
                           │                                           │
@@ -302,30 +302,30 @@
   ┌───────────────────────────────────────────────────────────────────────────┐
   │                           hazard_unit                                     │
   │                                                                           │
-  │  입력                                 출력                                │
+  │  입력                                 출력                                  │
   │  ────────────────────────────         ──────────────────────────────────  │
   │                                                                           │
-  │  [Load-Use 검출]                      stall_if  ──► IF Stage (PC 유지)    │
-  │  ex_mem_ren        ─────┐             stall_id  ──► IF/ID Reg (유지)      │
-  │  ex_rd[4:0]        ─┐  ├──► load_    stall_ex  ──► ID/EX Reg (유지)      │
-  │  id_rs1[4:0]       ─┤  │    use      stall_mem ──► EX/MEM Reg (유지)     │
-  │  id_rs2[4:0]       ─┘  │    hazard   stall_wb  ──► MEM/WB Reg (유지)     │
-  │                         │                                                  │
-  │  [CSR RAW 검출]          │             flush_id  ──► IF/ID Reg (NOP 삽입) │
-  │  id_csr_uses_rs1   ─┐  ├──► csr_     flush_ex  ──► ID/EX Reg (NOP 삽입) │
-  │  ex_reg_wen        ─┤  │    raw      flush_mem ──► EX/MEM Reg (NOP 삽입) │
-  │  id_ex_rd[4:0]     ─┤  │    hazard   flush_wb  ──► MEM/WB Reg (NOP 삽입) │
+  │  [Load-Use 검출]                      stall_if  ──► IF Stage (PC 유지)      │
+  │  ex_mem_ren        ─────┐             stall_id  ──► IF/ID Reg (유지)       │
+  │  ex_rd[4:0]        ─┐  ├──► load_    stall_ex  ──► ID/EX Reg (유지)        │
+  │  id_rs1[4:0]       ─┤  │    use      stall_mem ──► EX/MEM Reg (유지)       │
+  │  id_rs2[4:0]       ─┘  │    hazard   stall_wb  ──► MEM/WB Reg (유지)       │
+  │                         │                                                 │
+  │  [CSR RAW 검출]          │             flush_id  ──► IF/ID Reg (NOP 삽입)   │
+  │  id_csr_uses_rs1   ─┐  ├──► csr_     flush_ex  ──► ID/EX Reg (NOP 삽입)    │
+  │  ex_reg_wen        ─┤  │    raw      flush_mem ──► EX/MEM Reg (NOP 삽입)   │
+  │  id_ex_rd[4:0]     ─┤  │    hazard   flush_wb  ──► MEM/WB Reg (NOP 삽입)   │
   │  ex_mem_reg_wen    ─┤  │                                                  │
   │  mem_rd[4:0]       ─┘  │             pc_sel[1:0] ──► IF Stage             │
-  │                         │              00 = PC+4                           │
-  │  [제어 해저드]           │              01 = branch_target                 │
+  │                         │              00 = PC+4                          │
+  │  [제어 해저드]           │              01 = branch_target                   │
   │  branch_taken      ─┐  ├──► control   10 = jal_target / mtvec             │
   │  ex_jal            ─┤  │    hazard    11 = jalr_target                    │
   │  ex_jalr           ─┘  │                                                  │
-  │                         │                                                  │
-  │  [트랩]                  │                                                  │
+  │                         │                                                 │
+  │  [트랩]                  │                                                 │
   │  trap_en           ─────┼──► trap flush                                   │
-  │                         │                                                  │
+  │                         │                                                 │
   │  [메모리 지연]            │                                                  │
   │  imem_ready        ─┐  └──► mem_not_ready                                 │
   │  dmem_ready        ─┤                                                     │

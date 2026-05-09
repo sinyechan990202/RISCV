@@ -458,11 +458,18 @@ module rv32i_core #(
     // ECALL/EBREAK: opcode=1110011, funct3=000 → csr_op==3'b000, csr_addr[1:0] distinguishes
     // csr_addr==12'h000 → ECALL, csr_addr==12'h001 → EBREAK
     logic ex_is_ecall, ex_is_ebreak;
-    // id_ex_valid guards against reset/bubble state (all-zero) matching ECALL encoding
+    // id_ex_valid guards against reset/bubble state (all-zero) matching ECALL encoding.
+    // csr_op_int==3'b000 for ALL non-SYSTEM opcodes, so we must also exclude every
+    // other instruction class to avoid false traps (e.g. "sw x0,0(rs)" has csr_op=0,
+    // csr_addr=0, reg_wen=0 but is NOT ECALL).
     assign ex_is_ecall  = id_ex_valid & (id_ex_csr_op == 3'b000) & (id_ex_csr_addr == 12'h000)
-                        & (id_ex_reg_wen == 1'b0);
+                        & (id_ex_reg_wen == 1'b0)
+                        & ~id_ex_mem_wen & ~id_ex_mem_ren
+                        & ~id_ex_branch & ~id_ex_jal & ~id_ex_jalr;
     assign ex_is_ebreak = id_ex_valid & (id_ex_csr_op == 3'b000) & (id_ex_csr_addr == 12'h001)
-                        & (id_ex_reg_wen == 1'b0);
+                        & (id_ex_reg_wen == 1'b0)
+                        & ~id_ex_mem_wen & ~id_ex_mem_ren
+                        & ~id_ex_branch & ~id_ex_jal & ~id_ex_jalr;
     // IRQ: global MIE must be set; per-interrupt enable is in mie CSR (not yet exposed).
     // mip is updated in csr_regfile from ext_irq/timer_irq.
     // mtvec[1:0] is the vectoring mode, NOT per-interrupt enables — fixed below.

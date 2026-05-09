@@ -85,14 +85,20 @@ module hazard_unit (
         //    IF/ID and ID/EX must be flushed.
         //  - Load-use / CSR RAW: bubble into EX (flush_ex) while holding IF/ID.
         // --------------------------------------------------
+        // Suppress all flushes when the pipeline is frozen due to memory stall.
+        // When mem_not_ready=1 the whole pipeline is held in place; inserting a
+        // bubble via flush while stall_mem=1 would destroy the instruction currently
+        // in EX before ex_mem_reg can capture it (stall beats capture).
+        // The hazard condition persists across the freeze and fires correctly once
+        // mem_not_ready drops.
         if (trap_en) begin
-            flush_id  = 1'b1;
-            flush_ex  = 1'b1;
+            flush_id  = ~mem_not_ready;
+            flush_ex  = ~mem_not_ready;
             flush_mem = 1'b0;
             flush_wb  = 1'b0;
         end else begin
-            flush_id  = control_hazard;
-            flush_ex  = load_use_hazard | csr_raw_hazard | control_hazard;
+            flush_id  = control_hazard & ~mem_not_ready;
+            flush_ex  = (load_use_hazard | csr_raw_hazard | control_hazard) & ~mem_not_ready;
             flush_mem = 1'b0;
             flush_wb  = 1'b0;
         end
